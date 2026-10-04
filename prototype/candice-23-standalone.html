@@ -93,18 +93,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #info .l { font-size: 14px; color: var(--muted); margin-top: 6px; }
 #info a { margin-top: 10px; display: inline-grid; place-items: center; height: 46px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); text-decoration: none; letter-spacing: .06em; }
 
-/* Salle : choix de variante */
-#variant { top: calc(env(safe-area-inset-top, 0px) + 70px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border-radius: 999px; opacity: 0; }
-#variant button { height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: transparent; font-size: 14px; color: var(--muted); }
-#variant button[aria-pressed="true"] { background: var(--lav); color: #1a1430; }
-
-/* Gâteau */
-#blow { opacity: 0; display: grid; justify-items: center; gap: 10px; text-align: center; }
-#blowBtn { position: relative; width: 84px; height: 84px; border-radius: 50%; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-#blowBtn svg { position: absolute; inset: 0; }
-#blowBtn span { font-family: var(--f-deco); font-size: 12px; letter-spacing: .14em; }
-#blow p { margin: 0; font-size: 13px; color: var(--muted); letter-spacing: .08em; }
-
 /* Ticket */
 #ticketUi { padding: 14px; opacity: 0; display: grid; gap: 10px; }
 #ticketUi .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -116,7 +104,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #confirm { display: grid; gap: 8px; text-align: center; }
 #confirm p { margin: 0; font-size: 14px; }
 
-#flash { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 50%, #fff6dc 0%, #f3cf8a 35%, rgba(255,124,192,.6) 70%, rgba(18,21,44,0) 100%); }
 #toast { position: fixed; z-index: 30; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 70px); transform: translateX(-50%); padding: 10px 16px; font-size: 13.5px; opacity: 0; transition: opacity .3s; pointer-events: none; text-align: center; width: max-content; max-width: calc(100vw - 32px); }
 
 @media (prefers-reduced-motion: reduce) { .fade, #loader { transition: none; } #hint i { animation: none; } }
@@ -132,7 +119,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 <canvas id="gl" aria-label="Invitation animée : l'anniversaire de Candice, 23 ans, jeudi 19 novembre à 21h"></canvas>
 <div id="space" aria-hidden="true"></div>
-<div id="flash" aria-hidden="true"></div>
 <div id="toast" class="panel" role="status" aria-live="polite"></div>
 
 <div id="top" class="layer">
@@ -170,19 +156,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   <div class="h">21 H 00</div>
   <div class="l" id="place">Lieu dévoilé très bientôt</div>
   <a id="maps" href="https://www.google.com/maps/search/?api=1&query=Paris" target="_blank" rel="noopener">M'y emmener</a>
-</div>
-
-<div id="variant" class="layer panel" role="group" aria-label="Ambiance de la salle">
-  <button type="button" id="vDance" aria-pressed="true">Piste miroir</button>
-  <button type="button" id="vChill" aria-pressed="false">Salon chill</button>
-</div>
-
-<div id="blow" class="layer bottom">
-  <button id="blowBtn" type="button" aria-label="Maintiens appuyé pour souffler les bougies">
-    <svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40" fill="none" stroke="rgba(233,196,134,.25)" stroke-width="2"/><circle id="ring" cx="42" cy="42" r="40" fill="none" stroke="#e9c486" stroke-width="2" stroke-dasharray="251.3" stroke-dashoffset="251.3" transform="rotate(-90 42 42)"/></svg>
-    <span>SOUFFLE</span>
-  </button>
-  <p id="blowText">Maintiens pour souffler</p>
 </div>
 
 <div id="ticketUi" class="layer bottom panel">
@@ -504,6 +477,79 @@ const book = new THREE.Group(); book.position.set(-.02, 1.12, .22); book.rotatio
 }
 const rim = new THREE.PointLight(C.neon, 5, 4, 1.5); rim.position.set(1.0, 2.4, .4); street.add(rim);
 
+/* ═════════════ Foule stylisée (file d'attente + danseurs), en InstancedMesh ═════════════ */
+const personProfile = [[0, 0], [.12, 0], [.13, .08], [.15, .55], [.19, .95], [.22, 1.25], [.25, 1.42], [.23, 1.52], [.13, 1.57], [.06, 1.6], [.05, 1.66], [0, 1.66]].map(([x, y]) => new THREE.Vector2(x, y));
+const personGeo = new THREE.LatheGeometry(personProfile, 20);
+const headGeo = new THREE.SphereGeometry(.1, 16, 12);
+const armGeo = new THREE.CapsuleGeometry(.045, .5, 4, 8); armGeo.translate(0, -.29, 0); // pivot à l'épaule
+const crowdMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .55, metalness: .1 });
+const PALETTE_PEOPLE = [0x1d1f45, 0x2a2350, 0x3b2a5e, 0x1a2a4a, 0x4a2a48, 0x2b3b5e, 0x5a3a6a, 0x16182e];
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = V(1, 1, 1), _p = V(0, 0, 0), _l = new THREE.Matrix4();
+function makeCrowd(parent, people) {
+  const n = people.length;
+  const body = new THREE.InstancedMesh(personGeo, crowdMat, n), head = new THREE.InstancedMesh(headGeo, crowdMat, n), arms = new THREE.InstancedMesh(armGeo, crowdMat, n * 2);
+  const col = new THREE.Color();
+  people.forEach((p, i) => {
+    col.set(PALETTE_PEOPLE[i % PALETTE_PEOPLE.length]);
+    body.setColorAt(i, col); head.setColorAt(i, col.clone().multiplyScalar(1.15)); arms.setColorAt(i * 2, col); arms.setColorAt(i * 2 + 1, col);
+  });
+  [body, head, arms].forEach((m) => { m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); parent.add(m); });
+  const crowd = { body, head, arms, people };
+  updateCrowd(crowd, 0, 0, true);
+  return crowd;
+}
+/** dance = 0 : on attend en discutant ; dance = 1 : on danse sur le temps. */
+function updateCrowd(c, t, beat, force = false) {
+  c.people.forEach((p, i) => {
+    const ph = t * (p.dance ? 2.04 : .6) * Math.PI + p.ph;
+    const bounce = p.dance ? Math.abs(Math.sin(ph)) * .07 * p.energy : 0;
+    const sway = p.dance ? Math.sin(ph * .5) * .12 * p.energy : Math.sin(t * .5 + p.ph) * .025;
+    _p.set(p.x, bounce, p.z); _e.set(0, p.ry + (p.dance ? Math.sin(t * .4 + p.ph) * .3 : Math.sin(t * .2 + p.ph) * .08), sway); _q.setFromEuler(_e); _s.setScalar(p.h);
+    _m.compose(_p, _q, _s); c.body.setMatrixAt(i, _m);
+    _l.makeTranslation(0, 1.76 + (p.dance ? Math.sin(ph) * .02 : 0), p.dance ? .02 : 0); c.head.setMatrixAt(i, _l.premultiply(_m));
+    [-1, 1].forEach((side, k) => {
+      // angle du bras autour de l'épaule : pendant (attente), balancé (danse), levé au-dessus de la tête (mains en l'air)
+      const ang = p.dance ? (p.up ? Math.PI - .35 + Math.sin(ph + k) * .25 : .45 + Math.sin(ph + k * 2) * .3) : .1 + (p.talk && k ? Math.max(0, Math.sin(t * 1.3 + p.ph)) * .5 : 0);
+      _e.set(p.dance ? -.15 : 0, 0, side * ang); _q.setFromEuler(_e); _l.compose(V(side * .23, 1.46, 0), _q, V(1, 1, 1));
+      c.arms.setMatrixAt(i * 2 + k, _l.premultiply(_m));
+    });
+  });
+  c.body.instanceMatrix.needsUpdate = c.head.instanceMatrix.needsUpdate = c.arms.instanceMatrix.needsUpdate = true;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+// File d'attente devant le club, à droite de la porte, et un petit groupe qui discute à gauche
+const queuePeople = [];
+for (let i = 0; i < (mobile ? 8 : 11); i++) queuePeople.push({ x: 2.7 + i * .55 + rnd(-.1, .1), z: 1.75 + rnd(-.2, .25), ry: -Math.PI / 2 + rnd(-.5, .5), h: rnd(.92, 1.1), ph: rnd(0, 6), talk: Math.random() > .5 });
+[[-3.2, 2.1, .9], [-2.7, 2.5, -2.3], [-3.6, 2.6, 2.4]].forEach(([x, z, ry]) => queuePeople.push({ x, z, ry, h: rnd(.95, 1.08), ph: rnd(0, 6), talk: true }));
+const queue = makeCrowd(street, queuePeople);
+// Ambiance club dehors : ampoules autour de l'enseigne, néons, lumière qui pulse depuis la porte, brume au sol
+const BULBS = [];
+{ const w = 3.6, h = 1.45, cx = 0, cy = 5.35, step = .2;
+  for (let x = -w / 2; x <= w / 2 + 1e-6; x += step) { BULBS.push([cx + x, cy + h / 2]); BULBS.push([cx + x, cy - h / 2]); }
+  for (let y = -h / 2 + step; y < h / 2 - 1e-6; y += step) { BULBS.push([cx - w / 2, cy + y]); BULBS.push([cx + w / 2, cy + y]); } }
+const bulbMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), BULBS.length);
+BULBS.forEach(([x, y], i) => { _m.makeTranslation(x, y, .08); bulbMesh.setMatrixAt(i, _m); bulbMesh.setColorAt(i, new THREE.Color(1.6, 1.2, .8)); });
+street.add(bulbMesh);
+[[-2.25, 0xff4fa8], [-2.45, 0x7f7cff], [2.25, 0xff4fa8], [2.45, 0x7f7cff]].forEach(([x, c]) => {
+  const n = new THREE.Mesh(new THREE.BoxGeometry(.035, 3.9, .035), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(2.2), toneMapped: false }));
+  n.position.set(x, 1.95, .06); street.add(n);
+});
+const doorSpill = new THREE.PointLight(0xff4fa8, 3, 7, 1.4); doorSpill.position.set(0, 1.6, -.6); street.add(doorSpill);
+const hazeTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, "rgba(255,255,255,.55)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c); })();
+function makeHaze(parent, n, area, color, opacity) {
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: hazeTex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const s = rnd(area.s[0], area.s[1]); m.scale.set(s * 1.8, s, 1);
+    m.position.set(rnd(area.x[0], area.x[1]), rnd(area.y[0], area.y[1]), rnd(area.z[0], area.z[1]));
+    m.userData.ph = rnd(0, 6); parent.add(m); list.push(m);
+  }
+  return list;
+}
+const streetHaze = makeHaze(street, mobile ? 6 : 10, { x: [-6, 6], y: [.3, 1.2], z: [.5, 5], s: [2.5, 4.5] }, 0x8a5aa8, .14);
+
 /* ═════════════ L'enveloppe ═════════════ */
 const envelope = new THREE.Group(); scene.add(envelope);
 const envKey = new THREE.PointLight(0xffe2c0, 1.6, 3.5, 1.5); envKey.position.set(.3, .4, 1.2); envelope.add(envKey);
@@ -633,81 +679,68 @@ function stepDust(fx, dt, gravity = -1.2, life = 1.8) {
   if (fx.t > life) fx.t = -1;
 }
 
-/* ═════════════ Ascenseur ═════════════ */
+/* ═════════════ Ascenseur (on y entre face aux portes vitrées, sans demi-tour) ═════════════ */
 const TOP = 46;
 const shaft = new THREE.Group(); scene.add(shaft);
 const cabin = new THREE.Group(); scene.add(cabin);
-const CW = 2.2, CH = 2.9, CF = -2, CB = -5; // façade de cabine en z = -2 (portes vers la rue)
+const CW = 2.2, CH = 2.9, CF = -2, CB = -5;   // entrée côté rue (CF), portes vitrées + cadran au fond (CB)
+const WALLZ = -5.75;                           // mur des souvenirs, derrière les portes vitrées
 {
-  // Murs du puits
   const sm = new THREE.MeshStandardMaterial({ color: 0x15183a, roughness: .9 });
-  [-1.3, 1.3].forEach((x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(.1, TOP + 4, 3.6), sm); m.position.set(x, (TOP + 4) / 2, -3.3); shaft.add(m); });
-  const back = new THREE.Mesh(new THREE.BoxGeometry(2.7, TOP + 4, .1), sm); back.position.set(0, (TOP + 4) / 2, -5.2); shaft.add(back);
-  // Mur des souvenirs face aux portes vitrées
-  const wallH = TOP - 4.2;
-  const mw = new THREE.Mesh(new THREE.BoxGeometry(3.2, wallH, .1), new THREE.MeshStandardMaterial({ color: 0x1a1d44, roughness: .85 }));
-  mw.position.set(0, 3.7 + wallH / 2, -1.15); shaft.add(mw);
-  // Guirlande lumineuse le long du mur
-  // ampoules sur les bords seulement, jamais dans l'axe de la caméra
-  for (let y = 4.5, i = 0; y < TOP - 1; y += .9, i++) {
+  [-1.3, 1.3].forEach((x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(.1, TOP + .2, 4.1), sm); m.position.set(x, (TOP + .2) / 2, -3.95); shaft.add(m); });
+  const wallH = TOP - .35;
+  const mw = new THREE.Mesh(new THREE.BoxGeometry(2.7, wallH, .1), new THREE.MeshStandardMaterial({ color: 0x1a1d44, roughness: .85 }));
+  mw.position.set(0, wallH / 2, WALLZ - .05); shaft.add(mw);
+  for (let y = 1.5, i = 0; y < TOP - 1; y += .9, i++) { // ampoules sur les bords, jamais dans l'axe
     const b = new THREE.Mesh(new THREE.SphereGeometry(.018, 8, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.1, .8) }));
-    b.position.set((i % 2 ? 1 : -1) * (1.25 + Math.sin(y * 2) * .08), y, -1.21); shaft.add(b);
+    b.position.set((i % 2 ? 1 : -1) * (1.15 + Math.sin(y * 2) * .06), y, WALLZ + .02); shaft.add(b);
   }
 }
-// Cabine
-const cabLacquer = lacquer;
 {
   const depth = CF - CB, midZ = (CF + CB) / 2;
   [-1, 1].forEach((s) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(.08, CH, depth), cabLacquer); m.position.set(s * CW / 2, CH / 2, midZ); cabin.add(m);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(.08, CH, depth), lacquer); m.position.set(s * CW / 2, CH / 2, midZ); cabin.add(m);
     const w = new THREE.Mesh(new THREE.BoxGeometry(.03, .94, depth - .02), new THREE.MeshPhysicalMaterial({ color: 0x3b2a6e, roughness: .3, clearcoat: 1 }));
     w.position.set(s * (CW / 2 - .05), .47, midZ); cabin.add(w);
     const rail = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, depth - .3, 12), goldMat); rail.rotation.x = Math.PI / 2; rail.position.set(s * (CW / 2 - .08), .95, midZ); cabin.add(rail);
-    const g = new THREE.Group(); g.position.set(s * (CW / 2 - .045), 0, 0); g.rotation.y = -s * Math.PI / 2; cabin.add(g);
-    path(g, [[CB + .3, 1.15], [CB + .3, 2.6], [CF - .3, 2.6], [CF - .3, 1.15], [CB + .3, 1.15]].map(([z, y]) => [s * z, y]), 0, .01);
-    const sc = new THREE.Group(); sc.position.set(s * (CW / 2 - .05), 2.15, CF - .55); sc.rotation.y = -s * Math.PI / 2; cabin.add(sc);
-    const glow = new THREE.Mesh(new THREE.CircleGeometry(.12, 24, 0, Math.PI), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, .9, 1.6), toneMapped: false })); sc.add(glow);
+    const g = new THREE.Group(); g.position.set(s * (CW / 2 - .045), 0, 0); g.rotation.y = s * Math.PI / 2; cabin.add(g);
+    path(g, [[CB + .3, 1.15], [CB + .3, 2.6], [CF - .3, 2.6], [CF - .3, 1.15], [CB + .3, 1.15]].map(([z, y]) => [-s * z, y]), 0, .01);
+    const sc = new THREE.Group(); sc.position.set(s * (CW / 2 - .05), 2.15, CB + .7); sc.rotation.y = -s * Math.PI / 2; cabin.add(sc);
+    sc.add(new THREE.Mesh(new THREE.CircleGeometry(.12, 24, 0, Math.PI), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.8, .7, 1.2), toneMapped: false })));
     fan(sc, V(0, 0, .005), .15, 7, [.55, 1], .006);
   });
-  const back = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, .08), cabLacquer); back.position.set(0, CH / 2, CB); cabin.add(back);
-  path(cabin, stepped(1.3, 2.5, 3, .07, .07), CB + .045, .012);
-  fan(cabin, V(0, 1.2, CB + .045), .6, 13, [.3, .65, 1], .009);
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(CW, .06, depth), new THREE.MeshPhysicalMaterial({ color: 0x1a1d40, roughness: .2, clearcoat: 1 })); floor.position.set(0, -.03, midZ); cabin.add(floor);
-  const ceil = new THREE.Mesh(new THREE.BoxGeometry(CW, .06, depth), cabLacquer); ceil.position.set(0, CH, midZ); cabin.add(ceil);
-  const sun = new THREE.Group(); sun.position.set(0, CH - .035, midZ); sun.rotation.x = Math.PI / 2; cabin.add(sun);
-  sun.add(new THREE.Mesh(new THREE.CircleGeometry(.26, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.3, 1.7), toneMapped: false })));
-  fan(sun, V(0, 0, -.005), .55, 17, [.6, 1], .009); const sun2 = new THREE.Group(); sun2.rotation.z = Math.PI; sun.add(sun2); fan(sun2, V(0, 0, -.005), .55, 17, [.6, 1], .009);
-  const key = new THREE.PointLight(0xffc6e6, 2.6, 6, 1.6); key.position.set(0, CH - .3, midZ); cabin.add(key);
-  const fill = new THREE.PointLight(C.lav, 1.6, 4); fill.position.set(0, 1.4, CF - .6); cabin.add(fill);
-  // Façade de cabine
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(CW, .06, depth), new THREE.MeshPhysicalMaterial({ color: 0x1a1d40, roughness: .25, clearcoat: 1 })); floor.position.set(0, -.03, midZ); cabin.add(floor);
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(CW, .06, depth), lacquer); ceil.position.set(0, CH, midZ); cabin.add(ceil);
+  const lamp = new THREE.Mesh(new THREE.CircleGeometry(.22, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 1, 1.2), toneMapped: false }));
+  lamp.rotation.x = Math.PI / 2; lamp.position.set(0, CH - .035, midZ); cabin.add(lamp);
+  const key = new THREE.PointLight(0xffc6e6, 2.2, 6, 1.6); key.position.set(0, CH - .3, midZ + .4); cabin.add(key);
+  // fond de cabine : encadrement des portes vitrées + cadran
   const sideW = (CW - 1.3) / 2;
-  [-1, 1].forEach((s) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sideW, CH, .08), cabLacquer); m.position.set(s * (1.3 / 2 + sideW / 2), CH / 2, CF); cabin.add(m); });
-  const lin = new THREE.Mesh(new THREE.BoxGeometry(1.3, CH - 2.1, .08), cabLacquer); lin.position.set(0, 2.1 + (CH - 2.1) / 2, CF); cabin.add(lin);
-  // côté intérieur (face -z) : décor regardé par la caméra
-  const fz = CF - .045;
-  const inner = new THREE.Group(); inner.position.z = fz; inner.rotation.y = Math.PI; cabin.add(inner);
-  path(inner, stepped(1.42, 2.2, 3, .06, .05), 0, .018);
-  [-1, 1].forEach((s) => [0, .05, .1].forEach((d) => bar(inner, V(s * (CW / 2 - .12 - d), .06, 0), V(s * (CW / 2 - .12 - d), 2.6 + d, 0), .008)));
+  [-1, 1].forEach((s) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sideW, CH, .08), lacquer); m.position.set(s * (1.3 / 2 + sideW / 2), CH / 2, CB); cabin.add(m); });
+  const lin = new THREE.Mesh(new THREE.BoxGeometry(1.3, CH - 2.1, .08), lacquer); lin.position.set(0, 2.1 + (CH - 2.1) / 2, CB); cabin.add(lin);
+  const fz = CB + .045;
+  path(cabin, stepped(1.42, 2.2, 3, .06, .05), fz, .018);
+  [-1, 1].forEach((s) => [0, .05, .1].forEach((d) => bar(cabin, V(s * (CW / 2 - .12 - d), .06, fz), V(s * (CW / 2 - .12 - d), 2.6 + d, fz), .008)));
 }
-// Portes vitrées coulissantes
+// Portes vitrées du fond (s'ouvrent au 23e)
 const doorMat = new THREE.MeshPhysicalMaterial({ color: 0xb8a8ff, roughness: .4, specularIntensity: .1, transparent: true, opacity: .07, side: THREE.DoubleSide, envMapIntensity: .05 });
 decoGold = goldBrushed;
 const doors = [-1, 1].map((s) => {
   const g = new THREE.Group(); cabin.add(g);
-  g.add(new THREE.Mesh(new THREE.PlaneGeometry(.65, 2.1), doorMat)); g.children[0].position.y = 1.05;
-  const deco = new THREE.Group(); deco.position.z = -.012; g.add(deco); // côté cabine (vers la caméra)
-  const edge = -s * .325; // bord intérieur du battant
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(.65, 2.1), doorMat); pane.position.y = 1.05; g.add(pane);
+  const deco = new THREE.Group(); deco.position.z = .012; g.add(deco);
+  const edge = -s * .325;
   bar(deco, V(edge, 0, 0), V(edge, 2.1, 0), .012);
   bar(deco, V(-.32, 1.1, 0), V(.32, 1.1, 0), .008);
-  fan(deco, V(edge, 1.1, 0), .6, 6, [.35, .7, 1], .008, s < 0 ? Math.PI / 2 : 0, s < 0 ? Math.PI : Math.PI / 2);
+  fan(deco, V(edge, 1.1, 0), .6, 6, [.35, .7, 1], .008, s < 0 ? 0 : Math.PI / 2, s < 0 ? Math.PI / 2 : Math.PI);
   [-.12, .12].forEach((x) => bar(deco, V(x - s * .06, .06, 0), V(x - s * .06, .95, 0), .006));
-  g.userData.s = s; g.position.z = CF - .02; return g;
+  g.userData.s = s; g.position.z = CB + .02; return g;
 });
 decoGold = goldMat;
 function setDoors(open) { doors.forEach((d) => { d.position.x = d.userData.s * (.325 + open * .58); }); }
 
-// Cadran 1 → 23
-const DIAL_Y = 2.48, DIAL_R = .34;
+// Cadran 1 → 23 (de gauche à droite)
+const DIAL_Y = 2.48;
 const dialTex = canvasTex(512, 280, (g, w, h) => {
   g.fillStyle = "#1c2146"; g.beginPath(); g.arc(w / 2, h - 16, 236, Math.PI, 0); g.fill();
   g.strokeStyle = "#e9c486"; g.lineWidth = 5; g.beginPath(); g.arc(w / 2, h - 16, 236, Math.PI, 0); g.stroke();
@@ -720,11 +753,11 @@ const dialTex = canvasTex(512, 280, (g, w, h) => {
     if (f % 2) { g.fillStyle = f === 23 ? "#ff8fc8" : "#e9c486"; g.font = `${f === 23 ? 34 : 24}px "Poiret One", sans-serif`; g.fillText(String(f), x(212), y(212)); }
   }
 });
-const dial = new THREE.Mesh(new THREE.PlaneGeometry(DIAL_R * 2 * (512 / 472), DIAL_R * 2 * (280 / 472) * (512 / 472) * .5 * 2.0), new THREE.MeshBasicMaterial({ map: dialTex, transparent: true, color: new THREE.Color(1.1, 1.1, 1.1) }));
-dial.rotation.y = Math.PI; dial.position.set(0, DIAL_Y + .06, CF - .05); cabin.add(dial);
-const needle = new THREE.Group(); needle.position.set(0, DIAL_Y - .06, CF - .06); needle.rotation.y = Math.PI; cabin.add(needle);
-{ const n = new THREE.Mesh(new THREE.ConeGeometry(.012, .27, 4), goldMat); n.position.y = .135; needle.add(n); const hub = new THREE.Mesh(new THREE.SphereGeometry(.024, 16, 12), goldMat); needle.add(hub); }
-function setDial(floor) { const a = Math.PI - .2 - ((floor - 1) / 22) * (Math.PI - .4); needle.children.forEach(() => {}); needle.rotation.z = -(a - Math.PI / 2); }
+const dial = new THREE.Mesh(new THREE.PlaneGeometry(.74, .74 * 280 / 512), new THREE.MeshBasicMaterial({ map: dialTex, transparent: true, color: new THREE.Color(1.05, 1.05, 1.05) }));
+dial.position.set(0, DIAL_Y + .06, CB + .05); cabin.add(dial);
+const needle = new THREE.Group(); needle.position.set(0, DIAL_Y - .055, CB + .06); cabin.add(needle);
+{ const n = new THREE.Mesh(new THREE.ConeGeometry(.012, .27, 4), goldBrushed); n.position.y = .135; needle.add(n); const hub = new THREE.Mesh(new THREE.SphereGeometry(.024, 16, 12), goldBrushed); needle.add(hub); }
+function setDial(floor) { const a = Math.PI - .2 - ((floor - 1) / 22) * (Math.PI - .4); needle.rotation.z = a - Math.PI / 2; }
 
 /* Photos-souvenirs (exemples — vos ~100 photos les remplaceront) */
 const photoTex = [];
@@ -747,59 +780,77 @@ function makePhoto(seed) {
 for (let i = 0; i < 12; i++) photoTex.push(null);
 const photoGeo = new THREE.PlaneGeometry(.52, .61);
 const photoMats = [];
-const photos = new THREE.Group(); shaft.add(photos);
 const PHOTO_COUNT = 100;
 for (let i = 0; i < PHOTO_COUNT; i++) {
   const col = i % 4, row = Math.floor(i / 4);
-  const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.9, .88, .95) });
+  const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.88, .86, .94) });
   photoMats.push([mat, i % 12]);
   const m = new THREE.Mesh(photoGeo, mat);
-  m.position.set(-1.05 + col * .7 + (row % 2 ? .18 : -.08), 4.6 + row * ((TOP - 6) / 25) + (col % 2) * .5, -1.21);
-  m.rotation.set(0, Math.PI, (Math.sin(i * 12.9) * .12));
-  photos.add(m);
+  m.position.set(-.95 + col * .63 + (row % 2 ? .14 : -.06), 1.4 + row * ((TOP - 3) / 25) + (col % 2) * .45, WALLZ + .01);
+  m.rotation.z = Math.sin(i * 12.9) * .12;
+  shaft.add(m);
 }
-// souvenirs qui flottent dans la cabine
-const floaters = [];
+const floaters = []; // souvenirs qui flottent dans la cabine et « tombent » doucement : on monte
 for (let i = 0; i < 5; i++) {
   const mat = new THREE.MeshStandardMaterial({ roughness: .9, side: THREE.DoubleSide, color: 0xd8d0e8 });
   photoMats.push([mat, (i * 5) % 12]);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(.22, .26), mat); cabin.add(m);
-  floaters.push({ m, x: [-.6, .55, -.3, .35, 0][i], z: [-3.2, -2.9, -2.5, -3.6, -2.7][i], ph: i / 5 });
+  floaters.push({ m, x: [-.6, .55, -.3, .35, 0][i], z: [-3.2, -3.6, -4.0, -2.9, -3.8][i], ph: i / 5 });
 }
 
-/* ═════════════ Étage 23 : bar, salle, gâteau ═════════════ */
+/* ═════════════ La tour du club, et son toit-terrasse au 23e ═════════════ */
+const towerWin = canvasTex(64, 128, (g) => {
+  g.fillStyle = "#121433"; g.fillRect(0, 0, 64, 128);
+  for (let y = 6; y < 128; y += 12) for (let x = 6; x < 64; x += 14) { const r = Math.random(); g.fillStyle = r > .8 ? (r > .94 ? "#a8608a" : "#9a7a52") : "#191c3e"; g.fillRect(x, y, 7, 6); }
+});
+towerWin.wrapS = towerWin.wrapT = THREE.RepeatWrapping; towerWin.repeat.set(4, 9);
+const tower = new THREE.Mesh(new THREE.BoxGeometry(16.8, TOP - 9, 31), [
+  new THREE.MeshBasicMaterial({ map: towerWin }), new THREE.MeshBasicMaterial({ map: towerWin }),
+  new THREE.MeshBasicMaterial({ color: 0x0e1030 }), new THREE.MeshBasicMaterial({ color: 0x0e1030 }),
+  new THREE.MeshBasicMaterial({ map: towerWin }), new THREE.MeshBasicMaterial({ map: towerWin }),
+]);
+tower.position.set(0, 9 + (TOP - 9) / 2, -.45 - 15.5); street.add(tower);
+{ // liseré néon en haut de la tour
+  const neonEdge = new THREE.Mesh(new THREE.BoxGeometry(16.9, .06, .06), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, .8, 1.6), toneMapped: false }));
+  neonEdge.position.set(0, TOP + .02, -.42); scene.add(neonEdge);
+}
+
 const lounge = new THREE.Group(); lounge.position.y = TOP; scene.add(lounge);
 {
-  const fl = new THREE.Mesh(new THREE.BoxGeometry(14, .2, 26), new THREE.MeshPhysicalMaterial({ color: 0x0a0c24, roughness: .5, clearcoat: .3, envMapIntensity: .25 }));
-  fl.position.set(0, -.1, 9.5); lounge.add(fl);
-  // arches monumentales au fond et sur les côtés
-  [[0, 22, 0], [-6.8, 10, Math.PI / 2], [6.8, 10, -Math.PI / 2]].forEach(([x, z, ry]) => {
+  const fl = new THREE.Mesh(new THREE.BoxGeometry(16.6, .2, 25), new THREE.MeshPhysicalMaterial({ color: 0x0a0c24, roughness: .5, clearcoat: .3, envMapIntensity: .25 }));
+  fl.position.set(0, -.1, -6 - 12.5); lounge.add(fl);
+  const sill = new THREE.Mesh(new THREE.BoxGeometry(2.6, .2, 1.05), fl.material); sill.position.set(0, -.1, -5.5); lounge.add(sill);
+  // arches Art déco qui ceinturent le toit
+  [[0, -30.6, 0], [-8.2, -18, Math.PI / 2], [8.2, -18, -Math.PI / 2]].forEach(([x, z, ry]) => {
     const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; lounge.add(g);
-    for (let i = -2; i <= 2; i++) {
-      const gg = new THREE.Group(); gg.position.x = i * 3.2; g.add(gg);
+    for (let i = -3; i <= 3; i++) {
+      const gg = new THREE.Group(); gg.position.x = i * 3.4; g.add(gg);
       path(gg, stepped(2.4, 6.2, 4, .14, .22), 0, .03);
       fan(gg, V(0, 4.2, 0), 1.0, 9, [.5, 1], .015);
     }
   });
+  // kiosque de l'ascenseur sur le toit
+  const kiosk = new THREE.MeshPhysicalMaterial({ color: 0x1e2350, roughness: .4, clearcoat: .6 });
+  [-1, 1].forEach((s) => { const m = new THREE.Mesh(new THREE.BoxGeometry(.4, 3.2, 4), kiosk); m.position.set(s * 1.5, 1.6, -3.9); lounge.add(m); });
+  const kt = new THREE.Mesh(new THREE.BoxGeometry(3.4, .3, 4), kiosk); kt.position.set(0, 3.2, -3.9); lounge.add(kt);
 }
+
 // Bar
 const barGroup = new THREE.Group(); lounge.add(barGroup);
+const BARZ = -8.6;
 {
   const counter = new THREE.Mesh(new RoundedBoxGeometry(3.4, 1.05, .6, 4, .04), new THREE.MeshPhysicalMaterial({ color: 0x241f52, roughness: .25, clearcoat: 1 }));
-  counter.position.set(0, .525, 2.65); barGroup.add(counter);
+  counter.position.set(0, .525, BARZ); barGroup.add(counter);
   const top = new THREE.Mesh(new THREE.BoxGeometry(3.5, .04, .7), new THREE.MeshPhysicalMaterial({ color: 0x0b0c24, roughness: .25, clearcoat: 1, clearcoatRoughness: .1, envMapIntensity: .4 }));
-  top.position.set(0, 1.07, 2.65); barGroup.add(top);
-  const front = new THREE.Group(); front.position.z = 2.34; front.rotation.y = Math.PI; barGroup.add(front);
-  for (let i = -2; i <= 2; i++) fan(front, V(i * .68, .08, 0), .3, 9, [.5, 1], .008);
-  bar(barGroup, V(-1.7, 1.03, 2.33), V(1.7, 1.03, 2.33), .02);
-  // arche-écran derrière le bar (on passe à travers)
-  const arch = new THREE.Group(); arch.position.z = 3.6; barGroup.add(arch);
+  top.position.set(0, 1.07, BARZ); barGroup.add(top);
+  for (let i = -2; i <= 2; i++) fan(barGroup, V(i * .68, .08, BARZ + .31), .3, 9, [.5, 1], .008);
+  bar(barGroup, V(-1.7, 1.03, BARZ + .31), V(1.7, 1.03, BARZ + .31), .02);
+  const arch = new THREE.Group(); arch.position.z = BARZ - 1.2; barGroup.add(arch);
   path(arch, stepped(1.8, 3.1, 4, .12, .14), 0, .03);
   path(arch, stepped(2.2, 3.5, 4, .12, .14), 0, .012);
-  const glow = new THREE.PointLight(C.neon, 6, 6, 1.5); glow.position.set(0, 2.2, 3.4); barGroup.add(glow);
-  const warm = new THREE.PointLight(0xffd1a0, 3, 4, 1.5); warm.position.set(0, 2, 1.7); barGroup.add(warm);
+  const glow = new THREE.PointLight(C.neon, 4, 6, 1.5); glow.position.set(0, 2.2, BARZ - 1.0); barGroup.add(glow);
+  const warm = new THREE.PointLight(0xffd1a0, 2.4, 4, 1.5); warm.position.set(0, 2, BARZ + 1.1); barGroup.add(warm);
 }
-// Coupes de champagne (profil tourné)
 const coupeGlass = mobile
   ? new THREE.MeshPhysicalMaterial({ color: 0xf5f0ff, roughness: .05, transparent: true, opacity: .28, envMapIntensity: 2 })
   : new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .03, transmission: 1, thickness: .02, ior: 1.5, envMapIntensity: 1.6 });
@@ -818,78 +869,82 @@ const coupes = [-1, 1].map((s) => {
 });
 const spark = makeDust(mobile ? 60 : 120, .012, 0xfff2cc);
 
-// Salle : piste miroir + faisceaux / variante salon chill
-const salle = new THREE.Group(); salle.position.z = 10; lounge.add(salle);
+const djLines = [];
+// Le club : piste miroir tamisée, foule qui danse, DJ, faisceaux et lasers
+const CLUBZ = -16.5;
+const club = new THREE.Group(); club.position.z = CLUBZ; lounge.add(club);
 let mirror;
 if (!mobile) {
-  mirror = new Reflector(new THREE.CircleGeometry(5.5, 64), { textureWidth: Math.round(innerWidth * .6), textureHeight: Math.round(innerHeight * .6), color: 0x8f8ab8, clipBias: .003 });
-  mirror.rotation.x = -Math.PI / 2; mirror.position.y = .005; salle.add(mirror);
+  mirror = new Reflector(new THREE.CircleGeometry(5.6, 64), { textureWidth: Math.round(innerWidth * .6), textureHeight: Math.round(innerHeight * .6), color: 0x6a6698, clipBias: .003 });
 } else {
-  mirror = new THREE.Mesh(new THREE.CircleGeometry(5.5, 64), new THREE.MeshPhysicalMaterial({ color: 0x1a1d44, roughness: .05, metalness: .8, envMapIntensity: 1.5 }));
-  mirror.rotation.x = -Math.PI / 2; mirror.position.y = .005; salle.add(mirror);
+  mirror = new THREE.Mesh(new THREE.CircleGeometry(5.6, 64), new THREE.MeshPhysicalMaterial({ color: 0x12142e, roughness: .08, metalness: .8, envMapIntensity: 1.2 }));
 }
+mirror.rotation.x = -Math.PI / 2; mirror.position.y = .005; club.add(mirror);
 const rippleMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
-  uniforms: { uTime: { value: 0 }, uBeat: { value: 0 }, uAmp: { value: 1 } },
+  uniforms: { uTime: { value: 0 }, uBeat: { value: 0 }, uAmp: { value: .45 } },
   vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }",
   fragmentShader: `uniform float uTime, uBeat, uAmp; varying vec2 vUv;
     void main(){ vec2 p = vUv - .5; float r = length(p) * 2.;
-      float w = pow(.5 + .5 * sin(r * 22. - uTime * 2.4), 10.) * (.35 + uBeat * .9);
-      float w2 = pow(.5 + .5 * sin(r * 9. - uTime * 1.2 + p.x * 4.), 6.) * .25;
+      float w = pow(.5 + .5 * sin(r * 22. - uTime * 2.4), 12.) * (.25 + uBeat * .9);
       float fade = smoothstep(1., .15, r);
-      vec3 c = mix(vec3(.75,.55,1.), vec3(1.,.45,.75), .5 + .5 * sin(uTime * .4 + r * 3.));
-      gl_FragColor = vec4(c * (w + w2) * fade * .55 * uAmp, 1.); }`,
+      vec3 c = mix(vec3(.6,.45,1.), vec3(1.,.35,.7), .5 + .5 * sin(uTime * .4 + r * 3.));
+      gl_FragColor = vec4(c * w * fade * .5 * uAmp, 1.); }`,
 });
-const ripple = new THREE.Mesh(new THREE.CircleGeometry(5.5, 64), rippleMat); ripple.rotation.x = -Math.PI / 2; ripple.position.y = .012; salle.add(ripple);
-const beams = new THREE.Group(); salle.add(beams);
+const ripple = new THREE.Mesh(new THREE.CircleGeometry(5.6, 64), rippleMat); ripple.rotation.x = -Math.PI / 2; ripple.position.y = .012; club.add(ripple);
+const beams = new THREE.Group(); club.add(beams);
 const beamMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
-  uniforms: { uColor: { value: new THREE.Color(1, .5, .85) } },
+  uniforms: { uColor: { value: new THREE.Color(1, .5, .85) }, uI: { value: .1 } },
   vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }",
-  fragmentShader: "uniform vec3 uColor; varying vec2 vUv; void main(){ float a = pow(vUv.y, 1.6) * .18 * (1. - abs(vUv.x - .5) * 1.4); gl_FragColor = vec4(uColor * a, 1.); }",
+  fragmentShader: "uniform vec3 uColor; uniform float uI; varying vec2 vUv; void main(){ float a = pow(vUv.y, 2.) * uI * (1. - abs(vUv.x - .5) * 1.6); gl_FragColor = vec4(uColor * a, 1.); }",
 });
-for (let i = 0; i < 4; i++) {
-  const cone = new THREE.Mesh(new THREE.ConeGeometry(1.1, 7, 32, 1, true), beamMat.clone());
-  cone.material.uniforms.uColor.value = new THREE.Color(i % 2 ? 0xc9b8ff : 0xff7cc0);
-  const pivot = new THREE.Group(); pivot.position.set((i - 1.5) * 2.4, 7, -1 + (i % 2) * 2); beams.add(pivot);
-  cone.position.y = -3.5; pivot.add(cone); pivot.userData.ph = i * 1.7;
+for (let i = 0; i < 5; i++) {
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(.6, 8, 24, 1, true), beamMat.clone());
+  cone.material.uniforms.uColor.value = new THREE.Color([0xff6fb5, 0x8f7cff, 0xff6fb5, 0x6fa8ff, 0xc9b8ff][i]);
+  const pivot = new THREE.Group(); pivot.position.set((i - 2) * 2.2, 7.5, -4.6); beams.add(pivot);
+  cone.position.y = -4; pivot.add(cone); pivot.userData.ph = i * 1.3;
 }
-const salleLight = new THREE.PointLight(0xd7b8ff, 8, 12, 1.4); salleLight.position.set(0, 4, 0); salle.add(salleLight);
-const chill = new THREE.Group(); chill.visible = false; salle.add(chill);
-{
-  const velvetSofa = new THREE.MeshPhysicalMaterial({ color: 0x5b3c8f, roughness: .7, sheen: 1, sheenColor: new THREE.Color(0xd7b8ff) });
-  [[-1.8, -.4, .5], [1.8, -.4, -.5], [0, 1.6, Math.PI]].forEach(([x, z, r]) => {
-    const s = new THREE.Group(); s.position.set(x, 0, z); s.rotation.y = r; chill.add(s);
-    const seat = new THREE.Mesh(new RoundedBoxGeometry(2, .42, .9, 4, .18), velvetSofa); seat.position.y = .21; s.add(seat);
-    const back = new THREE.Mesh(new RoundedBoxGeometry(2, .6, .3, 4, .14), velvetSofa); back.position.set(0, .55, -.38); s.add(back);
-  });
-  const table = new THREE.Mesh(new THREE.CylinderGeometry(.6, .6, .05, 48), new THREE.MeshPhysicalMaterial({ color: 0x0f1130, roughness: .05, clearcoat: 1 })); table.position.y = .38; chill.add(table);
-  const leg = new THREE.Mesh(new THREE.CylinderGeometry(.06, .12, .36, 16), goldMat); leg.position.y = .18; chill.add(leg);
-  const rug = new THREE.Mesh(new THREE.CircleGeometry(3.2, 64), new THREE.MeshStandardMaterial({ color: 0x2b2160, roughness: 1 })); rug.rotation.x = -Math.PI / 2; rug.position.y = .02; chill.add(rug);
-  [[-3, -1.6], [3, -1.6], [-2.5, 1.8]].forEach(([x, z]) => {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, 1.5, 8), goldMat); p.position.set(x, .75, z); chill.add(p);
-    const shade = new THREE.Mesh(new THREE.ConeGeometry(.28, .3, 24, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.5, 1), side: THREE.DoubleSide, toneMapped: false })); shade.position.set(x, 1.55, z); chill.add(shade);
-    const l = new THREE.PointLight(0xffc28a, 3.5, 5, 1.6); l.position.set(x, 1.4, z); chill.add(l);
-  });
-  for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .1, 12), new THREE.MeshStandardMaterial({ color: 0xf3ead8 })); c.position.set(-.3 + i * .15, .45, (i % 2) * .1); chill.add(c); }
+const lasers = new THREE.Group(); lasers.position.set(0, 2.1, -5); club.add(lasers);
+for (let i = 0; i < 8; i++) {
+  const l = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, 14, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(i % 2 ? 2.6 : 1.4, .5, i % 2 ? 1.8 : 2.6), transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  l.geometry.translate(0, 7, 0); const piv = new THREE.Group(); piv.add(l); piv.userData.ph = i; lasers.add(piv);
 }
-let variantChill = false;
+{ // cabine du DJ
+  const booth = new THREE.Mesh(new RoundedBoxGeometry(2.4, 1.1, .8, 4, .05), new THREE.MeshPhysicalMaterial({ color: 0x14163a, roughness: .3, clearcoat: 1 }));
+  booth.position.set(0, .55, -5.4); club.add(booth);
+  fan(club, V(0, .1, -4.99), .45, 11, [.5, 1], .01);
+  const deck = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .03, 32), new THREE.MeshStandardMaterial({ color: 0x0a0a14, roughness: .3 }));
+  [-.5, .5].forEach((x) => { const d = deck.clone(); d.position.set(x, 1.12, -5.4); club.add(d); });
+  const back = new THREE.Group(); back.position.set(0, 0, -6.3); club.add(back);
+  path(back, stepped(4.6, 5.2, 4, .2, .25), 0, .04);
+  path(back, stepped(5.2, 5.8, 4, .2, .25), 0, .015);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(4.3, 4.6), new THREE.MeshBasicMaterial({ color: 0x0c0a1e }));
+  wall.position.set(0, 2.3, -6.36); club.add(wall);
+  for (let k = 0; k < 7; k++) { // fines lignes néon horizontales
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(3.6 - Math.abs(k - 3) * .35, .025), new THREE.MeshBasicMaterial({ color: new THREE.Color(k % 2 ? 1.6 : .9, .4, k % 2 ? 1.2 : 1.8), toneMapped: false }));
+    l.position.set(0, 1.2 + k * .5, -6.34); club.add(l); djLines.push(l);
+  }
+}
+const clubLights = [0xff5fae, 0x7f6cff, 0x4f8cff].map((c, i) => { const l = new THREE.PointLight(c, 3, 9, 1.5); l.position.set((i - 1) * 3, 3.2, -1); club.add(l); return l; });
 
-// Gâteau
-const cake = new THREE.Group(); cake.position.set(0, 0, 18); lounge.add(cake);
-const flames = []; let blown = false, blowT = -1;
+// Gâteau, posé sur une petite scène au fond du toit, avec feux de Bengale
+const CAKEX = -5.9, CAKEZ = CLUBZ + 1.2; // sur une petite scène, côté gauche de la terrasse
+const cake = new THREE.Group(); cake.position.set(CAKEX, 0, CAKEZ); lounge.add(cake);
+const flames = [];
 {
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(.5, .75, .9, 48), new THREE.MeshPhysicalMaterial({ color: 0x241f52, roughness: .2, clearcoat: 1 })); ped.position.y = .45; cake.add(ped);
-  const plate = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, .04, 64), goldMat); plate.position.y = .92; cake.add(plate);
+  const stage = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.1, .25, 64), new THREE.MeshPhysicalMaterial({ color: 0x1a1d44, roughness: .2, clearcoat: 1 })); stage.position.y = .125; cake.add(stage);
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(.5, .75, .9, 48), new THREE.MeshPhysicalMaterial({ color: 0x241f52, roughness: .2, clearcoat: 1 })); ped.position.y = .25 + .45; cake.add(ped);
+  const base = .25;
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, .04, 64), goldMat); plate.position.y = base + .92; cake.add(plate);
   const tiers = [[.95, .5, 0xc9b8ff], [.72, .45, 0xf6d3e4], [.5, .4, 0xf3ead8]];
-  let y = .94;
+  let y = base + .94;
   tiers.forEach(([r, h, c], i) => {
     const t = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 64), new THREE.MeshPhysicalMaterial({ color: c, roughness: .55, sheen: 1, sheenColor: new THREE.Color(0xffffff) }));
     t.position.y = y + h / 2; cake.add(t);
     const band = new THREE.Mesh(new THREE.TorusGeometry(r + .004, .016, 8, 72), goldMat); band.rotation.x = Math.PI / 2; band.position.y = y + h * .22; cake.add(band);
     const icing = new THREE.Mesh(new THREE.TorusGeometry(r - .02, .035, 10, 72), new THREE.MeshPhysicalMaterial({ color: 0xfff6ee, roughness: .4 })); icing.rotation.x = Math.PI / 2; icing.position.y = y + h; cake.add(icing);
-    // éventails dorés autour de l'étage
-    const n = 6 + i * -1 + 2;
+    const n = 8 - i;
     for (let k = 0; k < n; k++) {
       const a = (k / n) * Math.PI * 2; const g = new THREE.Group();
       g.position.set(Math.sin(a) * (r + .006), y + h * .3, Math.cos(a) * (r + .006)); g.rotation.y = a; cake.add(g);
@@ -898,8 +953,7 @@ const flames = []; let blown = false, blowT = -1;
     y += h;
   });
   cake.userData.top = y;
-  // 23 bougies sur le rebord de l'étage du milieu, le « 23 » doré trône seul au sommet
-  const ledgeY = .94 + .5 + .45;
+  const ledgeY = base + .94 + .5 + .45;
   for (let i = 0; i < 23; i++) {
     const a = (i / 23) * Math.PI * 2, r = .62;
     const c = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .2, 8), new THREE.MeshStandardMaterial({ color: [0xf6d3e4, 0xc9b8ff, 0xf3ead8][i % 3], roughness: .5 }));
@@ -907,15 +961,35 @@ const flames = []; let blown = false, blowT = -1;
     const f = new THREE.Mesh(new THREE.SphereGeometry(.018, 10, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2.2, .9), toneMapped: false }));
     f.scale.set(1, 1.8, 1); f.position.set(Math.cos(a) * r, ledgeY + .225, Math.sin(a) * r); cake.add(f); flames.push(f);
   }
-  const cl = new THREE.PointLight(0xffb36b, 5, 5, 1.5); cl.position.set(0, y + .6, 0); cake.add(cl); cake.userData.light = cl;
+  const cl = new THREE.PointLight(0xffb36b, 4, 5, 1.5); cl.position.set(0, y + .6, 0); cake.add(cl); cake.userData.light = cl;
+  const front = new THREE.PointLight(0xffd9b0, 2.5, 4, 1.5); front.position.set(1.4, y + .3, 1.4); cake.add(front);
   if (FONT23) {
     const font = new Font(FONT23);
     const tg = new TextGeometry("23", { font, size: .4, depth: .07, curveSegments: 8, bevelEnabled: true, bevelThickness: .012, bevelSize: .008, bevelSegments: 3 });
     tg.computeBoundingBox(); const bb = tg.boundingBox; tg.translate(-(bb.max.x + bb.min.x) / 2, 0, -.035);
-    const t = new THREE.Mesh(tg, goldMat); t.position.y = y + .02; t.rotation.y = Math.PI; cake.add(t);
+    const t = new THREE.Mesh(tg, goldMat); t.position.y = y + .02; t.rotation.y = 1.15; cake.add(t); // face à la caméra
   }
+  // tiges des feux de Bengale
+  [[-.36, .1], [.36, .1], [0, -.3]].forEach(([x, z]) => { const s = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .35, 6), new THREE.MeshStandardMaterial({ color: 0x8a8a9a, metalness: .8, roughness: .4 })); s.position.set(x, y + .17, z); cake.add(s); });
+  cake.userData.tips = [[-.36, .1], [.36, .1], [0, -.3]].map(([x, z]) => V(x, y + .35, z));
 }
+// Étincelles des feux de Bengale (anneau de particules réutilisées)
+const SPK = mobile ? 240 : 480;
+const sparkler = { pos: new Float32Array(SPK * 3), vel: new Float32Array(SPK * 3), life: new Float32Array(SPK), next: 0 };
+const sparkGeo = new THREE.BufferGeometry(); sparkGeo.setAttribute("position", new THREE.BufferAttribute(sparkler.pos, 3));
+const sparkPts = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: .03, map: dotTex, color: new THREE.Color(3, 2.4, 1.4), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+sparkPts.frustumCulled = false; cake.add(sparkPts);
 const glitter = makeDust(mobile ? 400 : 900, .02, 0xffe0a0);
+// La foule qui danse autour de la piste, tournée vers le DJ
+const dancers = [];
+for (let i = 0; i < (mobile ? 34 : 70); i++) {
+  let x, z;
+  do { const a = rnd(0, Math.PI * 2), r = 1 + Math.sqrt(Math.random()) * 4.2; x = Math.cos(a) * r; z = Math.sin(a) * r; } while ((z < -3.9 && Math.abs(x) < 1.7) || Math.hypot(x - CAKEX, z - 1.2) < 2.6 || (x < -.8 && z > -.6)); // scène du gâteau + couloir de la caméra
+  dancers.push({ x, z, ry: Math.atan2(-x, -5.4 - z) + rnd(-.4, .4), dance: true, up: Math.random() > .72, energy: rnd(.6, 1.2), h: rnd(.9, 1.08), ph: rnd(0, 6) });
+}
+const crowd = makeCrowd(club, dancers);
+const dj = makeCrowd(club, [{ x: 0, z: -5.95, ry: 0, dance: true, up: false, energy: .5, h: 1, ph: 0 }]);
+const clubHaze = makeHaze(club, mobile ? 8 : 14, { x: [-6, 6], y: [.6, 3], z: [-6, 4], s: [3, 6] }, 0x7a4aa8, .1);
 
 /* ═════════════ Ticket ═════════════ */
 const ticketCanvas = document.createElement("canvas"); ticketCanvas.width = 1200; ticketCanvas.height = 600;
@@ -999,61 +1073,97 @@ function play(name) { if (soundOn && actx) { try { sfx[name](); } catch {} } }
 function setSound(on) {
   soundOn = on; $("sound").setAttribute("aria-pressed", String(on)); $("sound").setAttribute("aria-label", on ? "Couper le son" : "Activer le son");
   $("waves").setAttribute("opacity", on ? "1" : ".3");
-  if (on) { initAudio(); actx?.resume?.(); }
+  if (on) { initAudio(); actx?.resume?.(); startBeat(); }
+  if (master) master.gain.setTargetAtTime(on ? .8 : 0, actx.currentTime, .05);
 }
 $("sound").addEventListener("click", () => setSound(!soundOn));
+/* Battement club synthétisé (étouffé dehors, plein dans le club). Démarre au premier clic, coupé par le bouton son. */
+let beatBus = null, beatFilter = null, nextBeat = 0, beatIdx = 0, hatBuf = null;
+function startBeat() {
+  if (!actx || beatBus) return;
+  beatFilter = actx.createBiquadFilter(); beatFilter.type = "lowpass"; beatFilter.frequency.value = 300; beatFilter.Q.value = .7;
+  beatBus = actx.createGain(); beatBus.gain.value = 0;
+  beatFilter.connect(beatBus).connect(master);
+  hatBuf = noiseBuf(.06);
+  nextBeat = actx.currentTime + .1;
+  setInterval(scheduleBeat, 25);
+}
+function scheduleBeat() {
+  const spb = 60 / 118;
+  while (nextBeat < actx.currentTime + .15) {
+    const t = nextBeat;
+    const o = actx.createOscillator(), g = actx.createGain(); // grosse caisse
+    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+    g.gain.setValueAtTime(.9, t); g.gain.exponentialRampToValueAtTime(.001, t + .38);
+    o.connect(g).connect(beatFilter); o.start(t); o.stop(t + .4);
+    const h = actx.createBufferSource(), hf = actx.createBiquadFilter(), hg = actx.createGain(); // charleston à contretemps
+    h.buffer = hatBuf; hf.type = "highpass"; hf.frequency.value = 7000; hg.gain.setValueAtTime(.12, t + spb / 2); hg.gain.exponentialRampToValueAtTime(.001, t + spb / 2 + .05);
+    h.connect(hf).connect(hg).connect(beatFilter); h.start(t + spb / 2);
+    const notes = [43.65, 43.65, 51.91, 58.27]; // basse douce
+    const b = actx.createOscillator(), bg = actx.createGain(); b.type = "triangle"; b.frequency.value = notes[Math.floor(beatIdx / 4) % 4];
+    bg.gain.setValueAtTime(0, t + spb / 2); bg.gain.linearRampToValueAtTime(.18, t + spb / 2 + .02); bg.gain.exponentialRampToValueAtTime(.001, t + spb * .95);
+    b.connect(bg).connect(beatFilter); b.start(t + spb / 2); b.stop(t + spb);
+    nextBeat += spb; beatIdx++;
+  }
+}
+/** Volume et « mur » (filtre) selon l'endroit de l'histoire. */
+function setBeatMix(p) {
+  if (!beatBus) return;
+  let g = .22, f = 260;
+  if (p > .08 && p < .2) { g = .32; f = 380; }          // devant la porte
+  else if (p >= .2 && p < .47) { g = .1; f = 180; }     // dans l'ascenseur
+  else if (p >= .47 && p < .59) { g = .28; f = 1400; }  // au bar
+  else if (p >= .59 && p < .72) { g = .5; f = 9000; }   // dans le club
+  else if (p >= .72 && p < .82) { g = .38; f = 3000; }  // le gâteau
+  const now = actx.currentTime;
+  beatBus.gain.setTargetAtTime(g, now, .4); beatFilter.frequency.setTargetAtTime(f, now, .4);
+}
 
-/* ═════════════ Trajectoire de caméra (plan-séquence) ═════════════ */
-const E = V(0, 1.2, 7.6), ENV_TILT = -.72;   // pose finale de l'enveloppe posée
+
+/* ═════════════ Trajectoire de caméra : un seul plan-séquence continu ═════════════ */
+const E = V(0, 1.2, 7.6), ENV_TILT = -.72;   // pose de l'enveloppe une fois posée au sol
 const envN = V(0, -Math.sin(ENV_TILT), Math.cos(ENV_TILT));
 const envUp = V(0, Math.cos(ENV_TILT), Math.sin(ENV_TILT));
 const cardC = E.clone().addScaledVector(envUp, .64).addScaledVector(envN, .02);
-const S = V(0, 3.35, 9.6);                     // enveloppe flottante (accueil)
+const S = V(0, 3.35, 9.6);                    // enveloppe flottante (accueil)
 const camFit = () => { const a = camera.aspect; return a < 1 ? 1 + (1 - a) * .55 : 1; };
 const K = [
-  { p: .000, pos: V(0, 3.2, 12), tgt: V(0, 2.92, 9.6) },
-  { p: .035, pos: E.clone().addScaledVector(envN, 1.9), tgt: E.clone() },
-  { p: .052, pos: cardC.clone().addScaledVector(envN, 1.15), tgt: cardC.clone() },
-  { p: .074, pos: cardC.clone().addScaledVector(envN, .05), tgt: cardC.clone() },
-  { p: .102, pos: V(-.55, 1.9, 6.8), tgt: V(.3, 2.75, 0) },
-  { p: .165, pos: V(-.2, 1.8, 5.0), tgt: V(.35, 2.2, 0) },
-  { p: .200, pos: V(0, 1.9, .5), tgt: V(0, 1.7, -3) },
-  { p: .225, pos: V(0, 1.62, -3.4), tgt: V(0, 1.6, -6) },
-  { p: .245, pos: V(.05, 1.62, -3.9), tgt: V(-3, 1.7, -3.9) },
-  { p: .262, pos: V(0, 1.6, -4.25), tgt: V(0, 1.95, -1) },
-  { p: .470, pos: V(0, TOP + 1.6, -4.25), tgt: V(0, TOP + 1.95, -1) },
-  { p: .500, pos: V(0, TOP + 1.62, -.6), tgt: V(0, TOP + 1.35, 2.5) },
-  { p: .535, pos: V(0, TOP + 1.42, 1.25), tgt: V(0, TOP + 1.18, 2.6) },
-  { p: .580, pos: V(.08, TOP + 1.36, 1.45), tgt: V(0, TOP + 1.18, 2.6) },
-  { p: .600, pos: V(0, TOP + 1.85, 2.7), tgt: V(0, TOP + 1.6, 5) },
-  { p: .615, pos: V(0, TOP + 1.7, 3.7), tgt: V(0, TOP + 1.1, 8) },
-  { p: .640, pos: V(0, TOP + 1.9, 5.0), tgt: V(0, TOP + .15, 10.6) },
-  { p: .690, pos: V(.9, TOP + 1.6, 6.6), tgt: V(0, TOP + .35, 11) },
-  { p: .735, pos: V(0, TOP + 2.45, 14.5), tgt: V(0, TOP + 1.7, 18) },
-  { p: .800, pos: V(.15, TOP + 2.3, 14.8), tgt: V(0, TOP + 1.75, 18) },
-  { p: .816, pos: V(0, TOP + 2.7, 16.8), tgt: V(0, TOP + 2.4, 18) },
-  { p: .8165, pos: V(0, 6.5, 10.5), tgt: V(0, 1.6, 0), cut: true },
-  { p: .860, pos: V(0, 2.5, 6), tgt: V(0, 1.6, 1) },
-  { p: .885, pos: V(0, 1.66, 3.95), tgt: V(0, 1.56, 1.4) },
-  { p: .950, pos: V(0, 1.66, 3.95), tgt: V(0, 1.6, 1.4) },
-  { p: .978, pos: V(0, 6, 15), tgt: V(0, 8, 2) },
-  { p: 1.00, pos: V(0, 3.2, 12), tgt: V(0, 2.92, 9.6) },
+  [.000, V(0, 3.2, 12), V(0, 2.92, 9.6)],                          // accueil
+  [.030, E.clone().addScaledVector(envN, 1.9), E.clone()],         // l'enveloppe est tombée
+  [.050, cardC.clone().addScaledVector(envN, 1.0), cardC.clone()], // le carton sort
+  [.068, cardC.clone().addScaledVector(envN, .2), cardC.clone()],  // on plonge dans l'éventail…
+  [.092, V(-.25, 1.8, 6.2), V(.2, 2.5, 0)],                        // …le carton s'efface : la rue
+  [.150, V(-.15, 1.78, 4.6), V(.3, 2.2, 0)],                       // le vigile lève les yeux
+  [.185, V(0, 1.75, 1.0), V(0, 1.7, -3)],                          // on passe la porte
+  [.215, V(0, 1.64, -2.9), V(0, 1.85, -6)],                        // dans la cabine, face au cadran
+  [.235, V(0, 1.6, -3.3), V(0, 1.9, -6)],
+  [.455, V(0, TOP + 1.6, -3.3), V(0, TOP + 1.9, -6)],              // on monte de 1 à 23
+  [.478, V(0, TOP + 1.62, -5.6), V(0, TOP + 1.3, BARZ)],           // les portes s'ouvrent sur le toit
+  [.505, V(0, TOP + 1.42, BARZ + 1.25), V(0, TOP + 1.18, BARZ)],   // le bar
+  [.545, V(.08, TOP + 1.36, BARZ + 1.05), V(0, TOP + 1.18, BARZ)],
+  [.570, V(0, TOP + 1.85, BARZ - .4), V(0, TOP + 1.6, BARZ - 3.5)],
+  [.592, V(0, TOP + 1.95, BARZ - 1.6), V(0, TOP + 1.2, CLUBZ)],    // à travers l'arche
+  [.630, V(0, TOP + 2.7, CLUBZ + 4.2), V(0, TOP + 1.1, CLUBZ - 1)], // le club
+  [.680, V(.9, TOP + 2.6, CLUBZ + 1), V(0, TOP + 1.4, CLUBZ - 4)],  // au-dessus de la foule
+  [.722, V(-1.2, TOP + 2.6, CAKEZ + 2.6), V(CAKEX, TOP + 1.7, CAKEZ)], // on se tourne vers le gâteau
+  [.772, V(-2.5, TOP + 2.35, CAKEZ + 1.3), V(CAKEX, TOP + 1.8, CAKEZ)],
+  [.805, V(-1, TOP + 6, CAKEZ + 6), V(0, TOP + 5, 6)],                 // on s'élève au-dessus de la fête
+  [.832, V(0, TOP + 4, 9), V(0, TOP - 3, 0)],                          // on passe le bord du toit
+  [.868, V(0, 7, 9), V(0, 3.5, 0)],                                    // on redescend le long de la façade
+  [.900, V(0, 1.66, 3.95), V(0, 1.56, 1.4)],                       // à la porte : le ticket
+  [.950, V(0, 1.66, 3.95), V(0, 1.6, 1.4)],
+  [.978, V(0, 6, 15), V(0, 8, 2)],                                 // on remonte vers le ciel
+  [1.00, V(0, 3.2, 12), V(0, 2.92, 9.6)],
 ];
-const cr = (p0, p1, p2, p3, t) => {
-  const t2 = t * t, t3 = t2 * t;
-  return V(0, 0, 0)
-    .addScaledVector(p1, 2).addScaledVector(p2.clone().sub(p0), t)
-    .addScaledVector(p0.clone().multiplyScalar(2).sub(p1.clone().multiplyScalar(5)).add(p2.clone().multiplyScalar(4)).sub(p3), t2)
-    .addScaledVector(p0.clone().negate().add(p1.clone().multiplyScalar(3)).sub(p2.clone().multiplyScalar(3)).add(p3), t3)
-    .multiplyScalar(.5);
-};
+// Courbes de Catmull-Rom centripètes : vitesse continue, pas d'arrêts brusques entre les étapes.
+const camCurve = new THREE.CatmullRomCurve3(K.map((k) => k[1]), false, "centripetal");
+const tgtCurve = new THREE.CatmullRomCurve3(K.map((k) => k[2]), false, "centripetal");
+const camU = K.map((_, i) => i / (K.length - 1));
 function cameraAt(p) {
-  let i = 0; while (i < K.length - 2 && p > K[i + 1].p) i++;
-  const a = K[i], b = K[i + 1];
-  if (b.cut) return { pos: a.pos.clone(), tgt: a.tgt.clone() };
-  const t = easeIO(range(p, a.p, b.p));
-  const pa = a.cut || i === 0 ? a : K[i - 1], pb = K[i + 2] && !K[i + 2].cut ? K[i + 2] : b;
-  return { pos: cr(pa.pos, a.pos, b.pos, pb.pos, t), tgt: cr(pa.tgt, a.tgt, b.tgt, pb.tgt, t) };
+  let i = 0; while (i < K.length - 2 && p > K[i + 1][0]) i++;
+  const t = range(p, K[i][0], K[i + 1][0]);
+  const u = camU[i] + (camU[i + 1] - camU[i]) * t;
+  return { pos: camCurve.getPoint(u), tgt: tgtCurve.getPoint(u) };
 }
 
 /* ═════════════ Scroll (Lenis, boucle infinie) ═════════════ */
@@ -1112,7 +1222,7 @@ function startSeal(already) {
   }, reduced ? 0 : 260);
   setTimeout(() => {
     lenis.start(); play("whoosh");
-    goTo(.034, { duration: reduced ? 0 : 2.6, easing: (t) => 1 - Math.pow(1 - t, 3) });
+    goTo(.03, { duration: reduced ? 0 : 2.6, easing: (t) => 1 - Math.pow(1 - t, 3) });
     showHint = true;
   }, reduced ? 300 : 1300);
 }
@@ -1130,38 +1240,9 @@ function onReady() {
 }
 function show(el) { el.hidden = false; requestAnimationFrame(() => { el.classList.add("on"); el.style.opacity = 1; }); }
 function hide(el) { el.classList.remove("on"); el.style.opacity = 0; setTimeout(() => (el.hidden = true), 500); }
-$("replay").addEventListener("click", () => { initAudio(); setSound(true); hide($("back")); lenis.start(); play("whoosh"); goTo(.034, { duration: reduced ? 0 : 2.6 }); showHint = true; });
-$("myTicket").addEventListener("click", () => { initAudio(); setSound(true); hide($("back")); lenis.start(); goTo(.915, { immediate: true }); });
+$("replay").addEventListener("click", () => { initAudio(); setSound(true); hide($("back")); lenis.start(); play("whoosh"); goTo(.03, { duration: reduced ? 0 : 2.6 }); showHint = true; });
+$("myTicket").addEventListener("click", () => { initAudio(); setSound(true); hide($("back")); lenis.start(); goTo(.93, { immediate: true }); });
 let showHint = false;
-
-/* Salle : variantes */
-$("vDance").addEventListener("click", () => setVariant(false));
-$("vChill").addEventListener("click", () => setVariant(true));
-function setVariant(c) { variantChill = c; $("vDance").setAttribute("aria-pressed", String(!c)); $("vChill").setAttribute("aria-pressed", String(c)); chill.visible = c; beams.visible = !c; }
-
-/* Gâteau : maintenir pour souffler */
-let holdStart = 0, holdRaf = 0;
-const ring = $("ring");
-function holdTick() {
-  const k = clamp((performance.now() - holdStart) / 1100);
-  ring.style.strokeDashoffset = String(251.3 * (1 - k));
-  if (k >= 1) { blowOut(); return; }
-  holdRaf = requestAnimationFrame(holdTick);
-}
-function holdEnd() { cancelAnimationFrame(holdRaf); if (!blown) ring.style.strokeDashoffset = "251.3"; }
-$("blowBtn").addEventListener("pointerdown", (e) => { e.preventDefault(); if (blown) { relight(); return; } holdStart = performance.now(); holdTick(); });
-["pointerup", "pointerleave", "pointercancel"].forEach((ev) => $("blowBtn").addEventListener(ev, holdEnd));
-$("blowBtn").addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); if (blown) relight(); else { holdStart = performance.now(); holdTick(); } } });
-$("blowBtn").addEventListener("keyup", holdEnd);
-function blowOut() {
-  blown = true; blowT = performance.now(); play("blow"); setTimeout(() => play("chime"), 600);
-  $("blowText").textContent = "Fais un vœu ✦ (touche pour rallumer)";
-  const top = cake.getWorldPosition(V(0, 0, 0)).add(V(0, 4, 0));
-  const p = glitter.pts.geometry.attributes.position;
-  for (let i = 0; i < glitter.n; i++) { p.setXYZ(i, top.x + (Math.random() - .5) * 5, top.y + Math.random() * 3, top.z + (Math.random() - .5) * 5); glitter.vel.set([(Math.random() - .5) * .2, -.3 - Math.random() * .5, (Math.random() - .5) * .2], i * 3); }
-  p.needsUpdate = true; glitter.t = 0;
-}
-function relight() { blown = false; blowT = -1; ring.style.strokeDashoffset = "251.3"; $("blowText").textContent = "Maintiens pour souffler"; }
 
 /* Ticket : actions */
 $("save").addEventListener("click", () => {
@@ -1191,56 +1272,62 @@ if (EVENT.place) $("place").textContent = EVENT.place;
 const clock = new THREE.Clock();
 const camPos = V(0, 3.2, 12), camTgt = S.clone();
 const tmp = V(0, 0, 0);
-let lastFloor = 1, captionKey = "";
-const layers = { info: $("info"), variant: $("variant"), blow: $("blow"), ticketUi: $("ticketUi"), caption: $("caption"), hint: $("hint") };
+let captionKey = "", sparkOn = false, glitterDone = false;
+const envMats = [];
+envelope.traverse((o) => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (!envMats.includes(m)) { m.transparent = true; envMats.push(m); } }); });
+const layers = { info: $("info"), ticketUi: $("ticketUi"), caption: $("caption"), hint: $("hint") };
 function setLayer(el, o) {
   const v = Math.round(o * 100) / 100;
   if (el._o === v) return; el._o = v; el.style.opacity = v; el.classList.toggle("on", v > .5);
 }
-function crossed(a, b, x) { return prevP < x && a >= x && a - prevP < .2; }
+const BPM = 118;
 
 function frame() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
   const p = progress();
+  const beatPhase = (t * BPM / 60) % 1;
+  const beat = reduced ? .3 : Math.pow(1 - beatPhase, 4);
 
-  // Caméra
+  // Caméra (plan-séquence) + léger flottement « caméra à l'épaule »
   const k = cameraAt(p);
-  const fit = camFit();
-  k.pos.sub(k.tgt).multiplyScalar(fit).add(k.tgt);
-  if (p > .26 && p < .47) k.pos.copy(cameraAt(p).pos); // dans la cabine : pas de recul
+  const inCabin = p > .2 && p < .48;
+  if (!inCabin) k.pos.sub(k.tgt).multiplyScalar(camFit()).add(k.tgt);
   camPos.copy(k.pos); camTgt.copy(k.tgt);
-  if (!reduced) { camPos.x += Math.sin(t * .5) * .02; camPos.y += Math.sin(t * .7) * .015; }
+  if (!reduced) { camPos.x += Math.sin(t * .53) * .025 + Math.sin(t * 1.31) * .008; camPos.y += Math.sin(t * .71) * .018; camTgt.x += Math.sin(t * .37) * .02; }
   if (sealSlamT >= 0 && sealSlamT < .4 && !reduced) camPos.y += Math.sin(sealSlamT * 60) * .01 * (1 - sealSlamT / .4);
   camera.position.copy(camPos); camera.lookAt(camTgt);
   const vfov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(.36 / camera.aspect)), 45, 72);
   if (Math.abs(camera.fov - vfov) > .01) { camera.fov = vfov; camera.updateProjectionMatrix(); }
 
-  // Visibilité par scène (performance)
-  street.visible = p < .27 || p > .8165;
-  lounge.visible = p > .45 && p < .8165;
-  shaft.visible = cabin.visible = p < .62 || p > .8165;
-  envelope.visible = p < .085 || p > .95;
-  ticket.visible = p > .875 && p < .97;
+  // Visibilité par zone (performance)
+  street.visible = p < .24 || p > .79;
+  lounge.visible = p > .43 && p < .88;
+  shaft.visible = cabin.visible = p < .6 || p > .82;
+  envelope.visible = p < .072 || p > .95;
+  ticket.visible = p > .88 && p < .97;
 
-  // Enveloppe
-  if (p < .085 || p > .95) {
+  // Enveloppe : chute, sceau qui se brise, carton qui sort et s'efface quand on plonge dedans
+  if (envelope.visible) {
     if (p > .95) {
       const d = ease(range(p, .955, 1));
       envelope.position.set(Math.sin(d * 6) * .2 * (1 - d), S.y + (1 - d) * 7, S.z); envelope.rotation.set(0, (1 - d) * 1.5, Math.sin(d * 9) * .15 * (1 - d));
-      flapPivot.rotation.x = 0; card.position.set(0, 0, -.006); card.visible = true; seal.visible = sealed; sealL.position.set(0, 0, 0); sealR.position.set(0, 0, 0); sealL.rotation.set(Math.PI / 2, 0, 0); sealR.rotation.set(Math.PI / 2, 0, 0);
+      flapPivot.rotation.x = 0; card.position.set(0, 0, -.006); seal.visible = sealed;
+      sealL.position.set(0, 0, 0); sealR.position.set(0, 0, 0); sealL.rotation.set(Math.PI / 2, 0, 0); sealR.rotation.set(Math.PI / 2, 0, 0);
+      envMats.forEach((m) => (m.opacity = 1));
     } else {
-      const f = ease(range(p, 0, .035));
-      envelope.position.lerpVectors(S, E, f); envelope.position.y += Math.sin(f * Math.PI) * .5;
-      envelope.position.x += Math.sin(f * Math.PI * 2) * .3 * (1 - f);
-      envelope.rotation.set(ENV_TILT * f + (reduced ? 0 : Math.sin(f * Math.PI) * .5), (reduced ? 0 : f * Math.PI * 4), 0);
+      const f = ease(range(p, 0, .03));
+      envelope.position.lerpVectors(S, E, f); envelope.position.y += Math.sin(f * Math.PI) * .45;
+      envelope.position.x += Math.sin(f * Math.PI * 2) * .25 * (1 - f);
+      envelope.rotation.set(ENV_TILT * f + (reduced ? 0 : Math.sin(f * Math.PI) * .5), reduced ? 0 : f * Math.PI * 4, 0);
       if (p < .0005 && !reduced) { envelope.position.y += Math.sin(t * 1.2) * .03; envelope.rotation.z = Math.sin(t * .8) * .03; }
-      const o = range(p, .036, .046);
-      seal.visible = sealed;
+      const o = range(p, .031, .041);
       sealL.position.set(-o * .25, -o * o * .4, o * .1); sealL.rotation.set(Math.PI / 2 + o * 1.5, 0, o * .8);
       sealR.position.set(o * .25, -o * o * .4, o * .1); sealR.rotation.set(Math.PI / 2 - o * 1.2, 0, -o * .8);
       seal.visible = sealed && o < .99;
-      flapPivot.rotation.x = -Math.PI * 1.12 * ease(range(p, .04, .05));
-      card.position.y = .64 * ease(range(p, .046, .056)); card.position.z = -.006 + .026 * ease(range(p, .052, .058));
+      flapPivot.rotation.x = -Math.PI * 1.12 * ease(range(p, .035, .045));
+      card.position.y = .64 * ease(range(p, .04, .05)); card.position.z = -.006 + .026 * ease(range(p, .046, .052));
+      const fade = 1 - ease(range(p, .055, .07));
+      envMats.forEach((m) => (m.opacity = fade));
     }
     if (sealSlamT >= 0) {
       sealSlamT += dt; const s = clamp(sealSlamT / .22);
@@ -1248,63 +1335,72 @@ function frame() {
       seal.scale.set(sq, sq, s < 1 ? 1 : 1 + (1 - sq));
       if (sealSlamT > 1) { sealSlamT = -1; seal.scale.setScalar(1); seal.position.z = .03; }
     }
-    if (envDirtyUntil) { drawEnvelope(); if (performance.now() > envDirtyUntil) envDirtyUntil = 0; } // toujours un dernier dessin complet
+    if (envDirtyUntil) { drawEnvelope(); if (performance.now() > envDirtyUntil) envDirtyUntil = 0; }
   }
   stepDust(dust, dt, -.8, 2);
-  $("flash").style.opacity = String(bump(p, .062, .074, .074, .092) * .95 + bump(p, .806, .8165, .8165, .83) * .95);
 
-  // Rue : vigile & cordon
-  head.rotation.x = p < .3 ? THREE.MathUtils.lerp(.38, -.04, ease(range(p, .1, .125))) : (p > .86 ? THREE.MathUtils.lerp(.38, -.05, ease(range(p, .876, .888))) : .38);
-  head.rotation.y = p > .86 ? Math.sin(ease(range(p, .888, .9)) * Math.PI) * .25 : 0;
-  const open = p > .86 ? ease(range(p, .888, .905)) : 0;
-  if (Math.abs(postB.position.x - (.9 + open * 1.1)) > .0005) { postB.position.x = .9 + open * 1.1; postB.position.z = 1.3 + open * .25; updateRope(); }
+  // Rue : vigile, cordon, file d'attente, ampoules, lumière de la porte au rythme
+  if (street.visible) {
+    head.rotation.x = p < .3 ? THREE.MathUtils.lerp(.38, -.04, ease(range(p, .1, .13))) : (p > .86 ? THREE.MathUtils.lerp(.38, -.05, ease(range(p, .89, .9))) : .38);
+    head.rotation.y = p > .86 ? Math.sin(ease(range(p, .9, .912)) * Math.PI) * .25 : 0;
+    const open = p > .86 ? ease(range(p, .9, .915)) : 0;
+    if (Math.abs(postB.position.x - (.9 + open * 1.1)) > .0005) { postB.position.x = .9 + open * 1.1; postB.position.z = 1.3 + open * .25; updateRope(); }
+    updateCrowd(queue, t, beat);
+    const chase = Math.floor(t * 8);
+    for (let i = 0; i < BULBS.length; i++) { const on = reduced || (i + chase) % 3 !== 0; bulbMesh.setColorAt(i, tmpColor.setRGB(on ? 1.7 : .35, on ? 1.25 : .25, on ? .8 : .2)); }
+    bulbMesh.instanceColor.needsUpdate = true;
+    doorSpill.intensity = 2 + beat * 4;
+    doorSpill.color.setHSL((.9 + Math.sin(t * .2) * .08) % 1, .8, .6);
+    streetHaze.forEach((h) => { h.position.x += Math.sin(t * .1 + h.userData.ph) * .002; h.lookAt(camera.position); });
+  }
 
-  // Ascenseur
+  // Ascenseur : on monte de 1 à 23
   let cabY = 0;
-  if (p > .262 && p < .5) cabY = clamp(camera.position.y - 1.6, 0, TOP);
-  else if (p >= .5 && p < .8165) cabY = TOP;
+  if (p > .235 && p < .48) cabY = clamp(camera.position.y - 1.6, 0, TOP);
+  else if (p >= .48 && p < .87) cabY = TOP;
   cabin.position.y = cabY;
-  const floor = 1 + 22 * (cabY / TOP); setDial(floor);
-  setDoors(p < .25 ? 1 : p < .27 ? 1 - ease(range(p, .25, .27)) : p < .47 ? 0 : ease(range(p, .47, .495)));
-  floaters.forEach((f) => { const k2 = ((reduced ? f.ph : t * .07 + f.ph) % 1); f.m.position.set(f.x + Math.sin(t * .3 + f.ph * 9) * .05, .3 + k2 * 2.4, f.z); f.m.rotation.set(0, Math.PI + Math.sin(t * .4 + f.ph * 7) * .3, Math.sin(t * .5 + f.ph * 5) * .1); });
-  if (Math.round(floor) !== lastFloor) { lastFloor = Math.round(floor); }
+  setDial(1 + 22 * (cabY / TOP));
+  setDoors(p < .455 ? 0 : ease(range(p, .455, .475)));
+  floaters.forEach((f) => { const k2 = 1 - ((reduced ? f.ph : t * .06 + f.ph) % 1); f.m.position.set(f.x + Math.sin(t * .3 + f.ph * 9) * .05, .3 + k2 * 2.4, f.z); f.m.rotation.set(0, Math.sin(t * .4 + f.ph * 7) * .3, Math.sin(t * .5 + f.ph * 5) * .1); });
 
-  // Bar : trinquer au ralenti
-  const cl = range(p, .535, .58), touch = Math.sin(cl * Math.PI);
-  coupes.forEach((g) => {
-    const s = g.userData.s;
-    g.position.set(s * (.27 - touch * .175), 1.09 + touch * .06, 2.6 - touch * .02);
-    g.rotation.set(0, 0, -s * touch * .2);
-    const bp = g.userData.b.geometry.attributes.position;
-    g.userData.seeds.forEach(([a, r, ph], i) => { const y = ((t * .05 + ph) % 1); bp.setXYZ(i, Math.cos(a) * r * (.4 + y * .6), .132 + y * .028, Math.sin(a) * r * (.4 + y * .6)); });
-    bp.needsUpdate = true;
-  });
+  if (lounge.visible) {
+    // Bar : les coupes trinquent au ralenti
+    const cl = range(p, .505, .55), touch = Math.sin(cl * Math.PI);
+    coupes.forEach((g) => {
+      const s = g.userData.s;
+      g.position.set(s * (.27 - touch * .175), 1.09 + touch * .06, BARZ - touch * .02);
+      g.rotation.set(0, 0, -s * touch * .2);
+      const bp = g.userData.b.geometry.attributes.position;
+      g.userData.seeds.forEach(([a, r, ph], i) => { const y = ((t * .05 + ph) % 1); bp.setXYZ(i, Math.cos(a) * r * (.4 + y * .6), .132 + y * .028, Math.sin(a) * r * (.4 + y * .6)); });
+      bp.needsUpdate = true;
+    });
+    // Club : foule, faisceaux, lasers, lumière sur le temps
+    updateCrowd(crowd, t, beat); updateCrowd(dj, t, beat);
+    rippleMat.uniforms.uTime.value = reduced ? 2 : t; rippleMat.uniforms.uBeat.value = beat;
+    beams.children.forEach((b) => { b.rotation.z = Math.sin(t * .3 + b.userData.ph) * .45; b.rotation.x = Math.cos(t * .23 + b.userData.ph) * .3; b.children[0].material.uniforms.uI.value = .07 + beat * .06; });
+    lasers.children.forEach((l, i) => { l.rotation.z = (i - 3.5) * .16 + Math.sin(t * .6 + i) * .25; l.rotation.x = -1.2 + Math.sin(t * .4 + i * .7) * .25; l.children[0].material.opacity = (Math.floor(t * BPM / 60) % 4 < 2 ? .5 : .15); });
+    clubLights.forEach((l, i) => { l.intensity = 1.4 + beat * 2.4 * (i === Math.floor(t * BPM / 60) % 3 ? 1 : .3); });
+    clubHaze.forEach((h) => h.lookAt(camera.position));
+    djLines.forEach((l, i) => (l.material.color.setRGB(...(i % 2 ? [1.6, .4, 1.2] : [.9, .4, 1.8]).map((c) => c * (.35 + (reduced ? .5 : beat * .9) * ((Math.floor(t * BPM / 60) + i) % 3 === 0 ? 1 : .4))))));
+    // Gâteau : bougies + feux de Bengale qui s'allument tout seuls
+    flames.forEach((f, i) => { const s = reduced ? 1 : 1 + Math.sin(t * 13 + i) * .08; f.scale.set(s, s * 1.8, s); });
+    cake.userData.light.intensity = 4 + (reduced ? 0 : Math.sin(t * 11) * .6);
+    sparkOn = p > .7 && p < .83;
+    stepSparklers(dt, sparkOn && !reduced);
+    if (p > .735 && !glitterDone) { glitterDone = true; rainGlitter(); play("chime"); }
+    if (p < .7) glitterDone = false;
+  }
   stepDust(spark, dt, -.4, .9);
-
-  // Salle
-  rippleMat.uniforms.uTime.value = reduced ? 2 : t;
-  const beat = reduced ? .3 : Math.pow(.5 + .5 * Math.cos(t * Math.PI * 2 * (98 / 60)), 6);
-  rippleMat.uniforms.uBeat.value = beat; rippleMat.uniforms.uAmp.value = variantChill ? .35 : 1;
-  beams.children.forEach((b) => { b.rotation.z = Math.sin(t * .35 + b.userData.ph) * .35; b.rotation.x = Math.cos(t * .27 + b.userData.ph) * .25; });
-  salleLight.intensity = 6 + beat * 4;
-
-  // Gâteau
-  flames.forEach((f, i) => {
-    let s = blown ? clamp(1 - ((performance.now() - blowT) / 1000 - i * .02) / .25) : 1;
-    if (!reduced) s *= 1 + Math.sin(t * 13 + i) * .08;
-    f.scale.set(s, s * 1.8, s); f.visible = s > .01;
-  });
-  cake.userData.light.intensity = blown ? Math.max(.4, 5 - (performance.now() - blowT) / 1000 * 8) : 5 + (reduced ? 0 : Math.sin(t * 11) * .6);
   if (glitter.t >= 0) {
     glitter.t += dt; const gp = glitter.pts.geometry.attributes.position;
     for (let i = 0; i < glitter.n; i++) gp.setXYZ(i, gp.getX(i) + glitter.vel[i * 3] * dt + Math.sin(t * 2 + i) * .002, gp.getY(i) + glitter.vel[i * 3 + 1] * dt, gp.getZ(i) + glitter.vel[i * 3 + 2] * dt);
-    gp.needsUpdate = true; glitter.pts.material.opacity = clamp(glitter.t * 3) * clamp((6 - glitter.t) / 2) * (.75 + .25 * Math.sin(t * 20));
-    if (glitter.t > 6) glitter.t = -1;
+    gp.needsUpdate = true; glitter.pts.material.opacity = clamp(glitter.t * 3) * clamp((7 - glitter.t) / 2) * (.75 + .25 * Math.sin(t * 20));
+    if (glitter.t > 7) glitter.t = -1;
   }
 
   // Ticket
   if (ticket.visible) {
-    const a = ease(range(p, .884, .902));
+    const a = ease(range(p, .9, .915));
     const camDir = V(0, 0, 0).subVectors(camTgt, camPos).normalize();
     ticket.position.copy(camPos).addScaledVector(camDir, 1.25); ticket.position.y += .12 + (1 - a) * -.6;
     ticket.lookAt(camPos.x, ticket.position.y, camPos.z);
@@ -1316,36 +1412,60 @@ function frame() {
   // Profondeur de champ aux moments clés
   if (bokeh) {
     let focusP = null, ap = .00025;
-    if (p < .05 || p > .95) { focusP = p < .05 ? envelope.position : S; ap = .0016; }
-    else if (p > .52 && p < .6) { focusP = tmp.set(0, TOP + 1.2, 2.6); ap = .0028; }
-    else if (p > .72 && p < .81) { focusP = tmp.set(0, TOP + 2.2, 18); ap = .0018; }
-    else if (p > .88 && p < .95) { focusP = ticket.position; ap = .002; }
+    if (p < .05 || p > .955) { focusP = p < .05 ? envelope.position : S; ap = .0016; }
+    else if (p > .5 && p < .56) { focusP = tmp.set(0, TOP + 1.18, BARZ); ap = .0028; }
+    else if (p > .73 && p < .79) { focusP = tmp.set(CAKEX, TOP + 2.2, CAKEZ); ap = .0016; }
+    else if (p > .905 && p < .95) { focusP = ticket.position; ap = .002; }
     bokeh.enabled = !!focusP;
     if (focusP) { bokeh.uniforms.focus.value = camera.position.distanceTo(focusP); bokeh.uniforms.aperture.value = ap; }
   }
 
-  // Interface
+  // Interface (texte minimal)
   const first = guestFirst || "Toi";
-  const capt = p > .1 && p < .18 ? `${first}, t'es attendu·e.` : p > .625 && p < .695 ? (variantChill ? "Pose-toi, on est bien." : "Viens comme t'es.") : "";
-  const capO = Math.max(bump(p, .105, .118, .16, .175), bump(p, .628, .64, .68, .695));
+  const capt = p > .095 && p < .17 ? `${first}, t'es attendu·e.` : p > .62 && p < .7 ? "Viens comme t'es." : "";
+  const capO = Math.max(bump(p, .1, .112, .15, .165), bump(p, .628, .64, .68, .695));
   if (capt && capt !== captionKey) { captionKey = capt; $("captionText").textContent = capt; }
   setLayer(layers.caption, capO);
-  setLayer(layers.hint, showHint ? (p < .03 ? 1 : 1 - range(p, .03, .05)) : 0);
-  setLayer(layers.info, bump(p, .55, .565, .6, .612));
-  setLayer(layers.variant, bump(p, .622, .632, .69, .7));
-  setLayer(layers.blow, bump(p, .728, .74, .8, .808));
-  setLayer(layers.ticketUi, bump(p, .895, .905, .945, .955));
+  setLayer(layers.hint, showHint ? (p < .025 ? 1 : 1 - range(p, .025, .045)) : 0);
+  setLayer(layers.info, bump(p, .52, .532, .565, .578));
+  setLayer(layers.ticketUi, bump(p, .91, .918, .945, .955));
 
-  // Bruitages au fil de l'histoire (en avançant)
+  // Bruitages et musique au fil de l'histoire (en avançant)
   if (p > prevP && p - prevP < .1) {
-    [[.47, "ding"], [.475, "doors"], [.25, "doors"], [.51, "pop"], [.5575, "clink"]].forEach(([x, n]) => { if (prevP < x && p >= x) play(n); });
-    if (prevP < .5575 && p >= .5575) burst(spark, V(0, TOP + 1.38, 2.58), .5, .3);
+    [[.235, "doors"], [.455, "ding"], [.46, "doors"], [.49, "pop"], [.5275, "clink"]].forEach(([x, n]) => { if (prevP < x && p >= x) play(n); });
+    if (prevP < .5275 && p >= .5275) burst(spark, V(0, TOP + 1.38, BARZ - .02), .5, .3);
   }
   prevP = p;
+  setBeatMix(p);
 
   grain.uniforms.uTime.value = t % 10;
   composer.render();
   requestAnimationFrame(frame);
+}
+const tmpColor = new THREE.Color();
+
+function stepSparklers(dt, emit) {
+  const tips = cake.userData.tips;
+  for (let i = 0; i < SPK; i++) {
+    if (sparkler.life[i] > 0) {
+      sparkler.life[i] -= dt;
+      sparkler.vel[i * 3 + 1] -= 2.2 * dt;
+      for (let c = 0; c < 3; c++) sparkler.pos[i * 3 + c] += sparkler.vel[i * 3 + c] * dt;
+      if (sparkler.life[i] <= 0) sparkler.pos[i * 3 + 1] = -99;
+    } else if (emit && Math.random() < .5) {
+      const tip = tips[i % tips.length]; sparkler.pos.set([tip.x, tip.y, tip.z], i * 3);
+      const a = Math.random() * Math.PI * 2, s = .4 + Math.random() * 1.1;
+      sparkler.vel.set([Math.cos(a) * s * .6, .3 + Math.random() * 1.2, Math.sin(a) * s * .6], i * 3);
+      sparkler.life[i] = .25 + Math.random() * .5;
+    } else sparkler.pos[i * 3 + 1] = -99;
+  }
+  sparkGeo.attributes.position.needsUpdate = true;
+}
+function rainGlitter() {
+  const top = cake.getWorldPosition(V(0, 0, 0)).add(V(0, 4.5, 0));
+  const gp = glitter.pts.geometry.attributes.position;
+  for (let i = 0; i < glitter.n; i++) { gp.setXYZ(i, top.x + (Math.random() - .5) * 6, top.y + Math.random() * 3, top.z + (Math.random() - .5) * 6); glitter.vel.set([(Math.random() - .5) * .2, -.3 - Math.random() * .5, (Math.random() - .5) * .2], i * 3); }
+  gp.needsUpdate = true; glitter.t = 0;
 }
 
 addEventListener("resize", () => {
