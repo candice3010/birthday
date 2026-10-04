@@ -74,6 +74,9 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* Légendes de l'histoire */
 #caption { left: 0; right: 0; bottom: 18vh; text-align: center; padding-inline: 24px; opacity: 0; }
 #caption p { margin: 0; font-family: var(--f-display); font-style: italic; font-size: clamp(30px, 7.5vw, 56px); line-height: 1.05; text-shadow: 0 4px 30px rgba(0,0,0,.6), 0 0 30px rgba(255,124,192,.35); text-wrap: balance; }
+#floor { left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); opacity: 0; display: grid; justify-items: center; gap: 2px; font-family: var(--f-deco); color: var(--gold); text-shadow: 0 0 24px rgba(255,124,192,.55), 0 2px 12px rgba(0,0,0,.6); }
+#floor span { font-size: clamp(64px, 20vw, 110px); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+#floor small { font-size: 13px; letter-spacing: .5em; color: var(--ink); opacity: .8; }
 #hint { left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); font-family: var(--f-deco); letter-spacing: .3em; font-size: 12px; color: var(--muted); opacity: 0; text-align: center; }
 #hint i { display: block; margin: 10px auto 0; width: 1px; height: 34px; background: linear-gradient(var(--gold), transparent); animation: drip 2s ease-in-out infinite; }
 @keyframes drip { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
@@ -142,6 +145,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 <div id="caption" class="layer" aria-live="polite"><p id="captionText"></p></div>
 <div id="hint" class="layer">FAIS DÉFILER<i></i></div>
+<div id="floor" class="layer" aria-hidden="true"><span id="floorNum">01</span><small>ÉTAGE</small></div>
 
 <div id="info" class="layer bottom panel">
   <div class="d">Jeudi 19 novembre</div>
@@ -191,6 +195,7 @@ const EVENT = {
   host: "Candice", age: 23,
   dateLabel: "Jeudi 19 novembre", time: "21h",
   start: "20261119T200000Z", end: "20261120T030000Z",
+  club: "Le Velvet", // ← nom provisoire : mettre ici le nom de la boîte réservée
   place: "", // adresse à remplir
   maps: "https://www.google.com/maps/search/?api=1&query=Paris",
 };
@@ -436,9 +441,12 @@ function makePost(x) {
 const postA = makePost(-.9), postB = makePost(.9);
 const velvet = new THREE.MeshPhysicalMaterial({ color: 0x8a1d4e, roughness: .6, sheen: 1, sheenRoughness: .4, sheenColor: new THREE.Color(0xff8fc8) });
 const rope = new THREE.Mesh(new THREE.BufferGeometry(), velvet); street.add(rope);
+let ropeOpen = 0;
 function updateRope() {
-  const a = postA.position.clone().add(V(0, .98, 0)), b = postB.position.clone().add(V(0, .98, 0));
-  const mid = a.clone().add(b).multiplyScalar(.5); mid.y -= .32;
+  const a = postA.position.clone().add(V(0, .98, 0));
+  const hooked = postB.position.clone().add(V(0, .98, 0)), hanging = postA.position.clone().add(V(.06, .25, .05));
+  const b = hooked.lerp(hanging, ropeOpen);
+  const mid = a.clone().add(b).multiplyScalar(.5); mid.y -= .32 * (1 - ropeOpen); mid.x += .05 * ropeOpen;
   rope.geometry.dispose();
   rope.geometry = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, mid, b), 32, .035, 10, false);
 }
@@ -549,10 +557,20 @@ const ENV_W = 1.0, ENV_H = .66;
 const envBodyCanvas = document.createElement("canvas"); envBodyCanvas.width = 1024; envBodyCanvas.height = 676;
 const envTex = new THREE.CanvasTexture(envBodyCanvas); envTex.colorSpace = THREE.SRGBColorSpace; envTex.anisotropy = 8;
 const envPaper = new THREE.MeshPhysicalMaterial({ map: envTex, emissiveMap: envTex, emissive: 0xffffff, emissiveIntensity: .32, roughness: .55, sheen: .5, sheenColor: new THREE.Color(0x8a7fd0) });
+// Dos de l'enveloppe : plis en losange et liseré doré (visible quand elle tournoie)
+const makeEnvBack = () => canvasTex(1024, 676, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, "#262d60"); gr.addColorStop(1, "#1a1f4c"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(w * .5, h * .56); g.lineTo(w, 0); g.moveTo(0, h); g.lineTo(w * .42, h * .5); g.moveTo(w, h); g.lineTo(w * .58, h * .5); g.stroke();
+  g.strokeStyle = "rgba(233,196,134,.6)"; g.lineWidth = 3; g.strokeRect(26, 26, w - 52, h - 52); g.lineWidth = 1.2; g.strokeRect(40, 40, w - 80, h - 80);
+  g.fillStyle = "rgba(233,196,134,.75)"; g.font = '34px "Poiret One", sans-serif'; g.textAlign = "center"; g.fillText("C · 23", w / 2, h - 70);
+});
+const envBackTex = makeEnvBack();
+const envBack = new THREE.MeshPhysicalMaterial({ map: envBackTex, roughness: .55, emissive: 0xffffff, emissiveMap: envBackTex, emissiveIntensity: .25, sheen: .5, sheenColor: new THREE.Color(0x8a7fd0) });
 const envBody = new THREE.Mesh(new THREE.BoxGeometry(ENV_W, ENV_H, .008), [
-  new THREE.MeshStandardMaterial({ color: C.paper }), new THREE.MeshStandardMaterial({ color: C.paper }),
-  new THREE.MeshStandardMaterial({ color: C.paper }), new THREE.MeshStandardMaterial({ color: C.paper }),
-  envPaper, new THREE.MeshStandardMaterial({ color: C.paper }),
+  envBack, envBack,
+  envBack, envBack,
+  envPaper, envBack,
 ]);
 envelope.add(envBody);
 const flapPivot = new THREE.Group(); flapPivot.position.set(0, ENV_H / 2, .006); envelope.add(flapPivot);
@@ -703,9 +721,9 @@ const WALLZ = -5.75;                           // mur des souvenirs, derrière l
   });
   const floor = new THREE.Mesh(new THREE.BoxGeometry(CW, .06, depth), new THREE.MeshPhysicalMaterial({ color: 0x1a1d40, roughness: .25, clearcoat: 1 })); floor.position.set(0, -.03, midZ); cabin.add(floor);
   const ceil = new THREE.Mesh(new THREE.BoxGeometry(CW, .06, depth), lacquer); ceil.position.set(0, CH, midZ); cabin.add(ceil);
-  const lamp = new THREE.Mesh(new THREE.CircleGeometry(.22, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 1, 1.2), toneMapped: false }));
+  const lamp = new THREE.Mesh(new THREE.RingGeometry(.16, .2, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(.75, .6, .72), toneMapped: false, side: THREE.DoubleSide }));
   lamp.rotation.x = Math.PI / 2; lamp.position.set(0, CH - .035, midZ); cabin.add(lamp);
-  const key = new THREE.PointLight(0xffc6e6, 2.2, 6, 1.6); key.position.set(0, CH - .3, midZ + .4); cabin.add(key);
+  const key = new THREE.PointLight(0xffc6e6, 1.6, 6, 1.6); key.position.set(0, CH - .5, midZ + .4); cabin.add(key);
   // fond de cabine : encadrement des portes vitrées + cadran
   const sideW = (CW - 1.3) / 2;
   [-1, 1].forEach((s) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sideW, CH, .08), lacquer); m.position.set(s * (1.3 / 2 + sideW / 2), CH / 2, CB); cabin.add(m); });
@@ -732,7 +750,7 @@ decoGold = goldMat;
 function setDoors(open) { doors.forEach((d) => { d.position.x = d.userData.s * (.325 + open * .58); }); }
 
 // Cadran 1 → 23 (de gauche à droite)
-const DIAL_Y = 2.48;
+const DIAL_Y = 2.42;
 const dialTex = canvasTex(512, 280, (g, w, h) => {
   g.fillStyle = "#1c2146"; g.beginPath(); g.arc(w / 2, h - 16, 236, Math.PI, 0); g.fill();
   g.strokeStyle = "#e9c486"; g.lineWidth = 5; g.beginPath(); g.arc(w / 2, h - 16, 236, Math.PI, 0); g.stroke();
@@ -745,10 +763,10 @@ const dialTex = canvasTex(512, 280, (g, w, h) => {
     if (f % 2) { g.fillStyle = f === 23 ? "#ff8fc8" : "#e9c486"; g.font = `${f === 23 ? 34 : 24}px "Poiret One", sans-serif`; g.fillText(String(f), x(212), y(212)); }
   }
 });
-const dial = new THREE.Mesh(new THREE.PlaneGeometry(.74, .74 * 280 / 512), new THREE.MeshBasicMaterial({ map: dialTex, transparent: true, color: new THREE.Color(1.05, 1.05, 1.05) }));
+const dial = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0 * 280 / 512), new THREE.MeshBasicMaterial({ map: dialTex, transparent: true, color: new THREE.Color(1.05, 1.05, 1.05) }));
 dial.position.set(0, DIAL_Y + .06, CB + .05); cabin.add(dial);
-const needle = new THREE.Group(); needle.position.set(0, DIAL_Y - .055, CB + .06); cabin.add(needle);
-{ const n = new THREE.Mesh(new THREE.ConeGeometry(.012, .27, 4), goldBrushed); n.position.y = .135; needle.add(n); const hub = new THREE.Mesh(new THREE.SphereGeometry(.024, 16, 12), goldBrushed); needle.add(hub); }
+const needle = new THREE.Group(); needle.position.set(0, DIAL_Y - .075, CB + .06); cabin.add(needle);
+{ const n = new THREE.Mesh(new THREE.ConeGeometry(.016, .36, 4), goldBrushed); n.position.y = .18; needle.add(n); const hub = new THREE.Mesh(new THREE.SphereGeometry(.024, 16, 12), goldBrushed); needle.add(hub); }
 function setDial(floor) { const a = Math.PI - .2 - ((floor - 1) / 22) * (Math.PI - .4); needle.rotation.z = a - Math.PI / 2; }
 
 /* Photos-souvenirs (exemples — vos ~100 photos les remplaceront) */
@@ -787,7 +805,7 @@ for (let i = 0; i < 5; i++) {
   const mat = new THREE.MeshStandardMaterial({ roughness: .9, side: THREE.DoubleSide, color: 0xd8d0e8 });
   photoMats.push([mat, (i * 5) % 12]);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(.22, .26), mat); cabin.add(m);
-  floaters.push({ m, x: [-.6, .55, -.3, .35, 0][i], z: [-3.2, -3.6, -4.0, -2.9, -3.8][i], ph: i / 5 });
+  floaters.push({ m, x: [-.82, .8, -.78, .84, -.86][i], z: [-3.3, -3.9, -4.4, -2.8, -3.0][i], ph: i / 5 });
 }
 
 /* ═════════════ La tour du club, et son toit-terrasse au 23e ═════════════ */
@@ -1003,7 +1021,7 @@ function drawTicket() {
   // talon
   g.setLineDash([8, 10]); g.beginPath(); g.moveTo(w * .72, 60); g.lineTo(w * .72, h - 60); g.stroke(); g.setLineDash([]);
   g.textAlign = "center"; g.fillStyle = "#e9c486";
-  g.font = '28px "Poiret One", sans-serif'; g.fillText("L E   2 3   ·   E N T R É E", w * .36, 110);
+  g.font = '28px "Poiret One", sans-serif'; g.fillText(`${EVENT.club.toUpperCase().split("").join(" ")}   ·   E N T R É E`, w * .36, 110);
   const name = `${guestFirst} ${guestLast}`.trim() || "Ton nom";
   let size = 120; g.font = `${size}px "Pinyon Script", cursive`;
   while (g.measureText(name).width > w * .62 && size > 50) { size -= 4; g.font = `${size}px "Pinyon Script", cursive`; }
@@ -1022,12 +1040,22 @@ function buildTextTextures() {
   signMat.map = canvasTex(1024, 352, (g, w, h) => {
     g.clearRect(0, 0, w, h); g.textAlign = "center"; g.textBaseline = "middle";
     g.shadowColor = "#ff6fb5"; g.shadowBlur = 30; g.strokeStyle = "#ffd0e8"; g.lineWidth = 6;
-    g.font = 'italic 200px "Cormorant Garamond", serif'; g.strokeText("Le", w * .3, h * .52);
-    g.shadowColor = "#e9c486"; g.strokeStyle = "#fff0cc"; g.font = '230px "Poiret One", sans-serif'; g.strokeText("23", w * .66, h * .52);
-    g.shadowBlur = 60; g.strokeText("23", w * .66, h * .52);
+    // Nom du club en néon, ajusté à la largeur de l'enseigne
+    const words = EVENT.club.split(" "), lead = words.length > 1 && words[0].length <= 3 ? words.shift() : "";
+    const main = words.join(" ");
+    let size = 230; g.font = `${size}px "Poiret One", sans-serif`;
+    const leadW = () => (lead ? (g.font = `italic ${size * .85}px "Cormorant Garamond", serif`, g.measureText(lead + " ").width) : 0);
+    const mainW = () => (g.font = `${size}px "Poiret One", sans-serif`, g.measureText(main).width);
+    while (leadW() + mainW() > w * .9 && size > 60) size -= 6;
+    const lw = leadW(), mw = mainW(), x0 = w / 2 - (lw + mw) / 2;
+    g.textAlign = "left";
+    if (lead) { g.font = `italic ${size * .85}px "Cormorant Garamond", serif`; g.strokeText(lead, x0, h * .52); }
+    g.shadowColor = "#e9c486"; g.strokeStyle = "#fff0cc"; g.font = `${size}px "Poiret One", sans-serif`;
+    g.strokeText(main, x0 + lw, h * .52); g.shadowBlur = 60; g.strokeText(main, x0 + lw, h * .52);
   });
   signMat.needsUpdate = true;
   drawSeal(); drawEnvelope(); drawCard(); drawTicket();
+  envBack.map = envBack.emissiveMap = makeEnvBack(); envBack.needsUpdate = true; // redessiné avec la bonne police
   for (let i = 0; i < 12; i++) photoTex[i] = makePhoto(i);
   photoMats.forEach(([m, k]) => { m.map = photoTex[k]; m.needsUpdate = true; });
 }
@@ -1059,6 +1087,7 @@ const sfx = {
   pop() { noise(.08, 1800, 600, .5); tone(520, .12, "sine", .25, 0, 180); noise(1.4, 6000, 4000, .03, .1, .5); },
   clink() { [2637, 3520, 4186, 5274].forEach((f, i) => tone(f, 1.6 - i * .2, "sine", .06 - i * .01)); },
   blow() { noise(1.2, 700, 300, .25, 0, .4); },
+  tick() { tone(2200, .05, "sine", .025); },
   chime() { [1046, 1318, 1568, 2093].forEach((f, i) => tone(f, 1.4, "sine", .07, i * .09)); },
 };
 function play(name) { if (soundOn && actx) { try { sfx[name](); } catch {} } }
@@ -1071,7 +1100,12 @@ function setSound(on) {
 $("sound").addEventListener("click", () => setSound(!soundOn));
 /* Battement club synthétisé (étouffé dehors, plein dans le club). Démarre au premier clic, coupé par le bouton son. */
 let beatBus = null, beatFilter = null, nextBeat = 0, beatIdx = 0, hatBuf = null;
+const song = new Audio(); song.loop = true; song.preload = "auto"; song.src = "musique.mp3";
+let songOK = false;
+song.addEventListener("canplaythrough", () => (songOK = true), { once: true });
+song.addEventListener("error", () => (songOK = false));
 function startBeat() {
+  if (songOK || song.readyState >= 3) { song.volume = .0; song.play().then(() => { songOK = true; fadeSong(.85); }).catch(() => {}); return; }
   if (!actx || beatBus) return;
   beatFilter = actx.createBiquadFilter(); beatFilter.type = "lowpass"; beatFilter.frequency.value = 300; beatFilter.Q.value = .7;
   beatBus = actx.createGain(); beatBus.gain.value = 0;
@@ -1099,7 +1133,11 @@ function scheduleBeat() {
   }
 }
 /** Volume et « mur » (filtre) selon l'endroit de l'histoire. */
+let songTarget = .85;
+function fadeSong(v) { songTarget = v; }
+setInterval(() => { if (songOK) song.volume += (Math.min(1, songTarget * (soundOn ? 1 : 0)) - song.volume) * .15; }, 50);
 function setBeatMix(p) {
+  if (songOK) { songTarget = p >= .2 && p < .47 ? .45 : p >= .59 && p < .82 ? 1 : .75; return; }
   if (!beatBus) return;
   let g = .22, f = 260;
   if (p > .08 && p < .2) { g = .32; f = 380; }          // devant la porte
@@ -1127,9 +1165,9 @@ const K = [
   [.092, V(-.25, 1.8, 6.2), V(.2, 2.5, 0)],                        // …le carton s'efface : la rue
   [.150, V(-.15, 1.78, 4.6), V(.3, 2.2, 0)],                       // le vigile lève les yeux
   [.185, V(0, 1.75, 1.0), V(0, 1.7, -3)],                          // on passe la porte
-  [.215, V(0, 1.64, -2.9), V(0, 1.85, -6)],                        // dans la cabine, face au cadran
-  [.235, V(0, 1.6, -3.3), V(0, 1.9, -6)],
-  [.455, V(0, TOP + 1.6, -3.3), V(0, TOP + 1.9, -6)],              // on monte de 1 à 23
+  [.215, V(0, 1.62, -2.15), V(0, 1.78, -6)],                        // dans la cabine, recul : tout le cadran visible
+  [.235, V(0, 1.6, -2.2), V(0, 1.8, -6)],
+  [.455, V(0, TOP + 1.6, -2.2), V(0, TOP + 1.8, -6)],              // on monte de 1 à 23
   [.478, V(0, TOP + 1.62, -5.6), V(0, TOP + 1.3, BARZ)],           // les portes s'ouvrent sur le toit
   [.505, V(0, TOP + 1.42, BARZ + 1.25), V(0, TOP + 1.18, BARZ)],   // le bar
   [.545, V(.08, TOP + 1.36, BARZ + 1.05), V(0, TOP + 1.18, BARZ)],
@@ -1139,8 +1177,8 @@ const K = [
   [.680, V(.9, TOP + 2.6, CLUBZ + 1), V(0, TOP + 1.4, CLUBZ - 4)],  // au-dessus de la foule
   [.722, V(-1.2, TOP + 2.6, CAKEZ + 2.6), V(CAKEX, TOP + 1.7, CAKEZ)], // on se tourne vers le gâteau
   [.772, V(-2.5, TOP + 2.35, CAKEZ + 1.3), V(CAKEX, TOP + 1.8, CAKEZ)],
-  [.805, V(-1, TOP + 6, CAKEZ + 6), V(0, TOP + 5, 6)],                 // on s'élève au-dessus de la fête
-  [.832, V(0, TOP + 4, 9), V(0, TOP - 3, 0)],                          // on passe le bord du toit
+  [.805, V(0, TOP + 5.5, CLUBZ + 12), V(0, TOP + .5, CLUBZ)],           // on s'élève : la fête vue d'en haut
+  [.832, V(0, TOP + 3.5, 8), V(0, TOP - 6, 0)],                         // on passe le bord du toit
   [.868, V(0, 7, 9), V(0, 3.5, 0)],                                    // on redescend le long de la façade
   [.900, V(0, 1.66, 3.95), V(0, 1.56, 1.4)],                       // à la porte : le ticket
   [.950, V(0, 1.66, 3.95), V(0, 1.6, 1.4)],
@@ -1159,10 +1197,21 @@ function cameraAt(p) {
 }
 
 /* ═════════════ Scroll (Lenis, boucle infinie) ═════════════ */
-const lenis = new Lenis({ infinite: true, syncTouch: true, syncTouchLerp: .07, lerp: reduced ? 1 : .075, touchMultiplier: 1.4, wheelMultiplier: .9 });
+const lenis = new Lenis({ infinite: true, syncTouch: true, syncTouchLerp: .055, touchInertiaExponent: 1.9, lerp: reduced ? 1 : .06, touchMultiplier: 1.25, wheelMultiplier: .8 });
 lenis.stop();
 let prevP = 0;
-const progress = () => { const L = lenis.limit || 1; return (((lenis.scroll % L) + L) % L) / L; };
+const rawProgress = () => { const L = lenis.limit || 1; return (((lenis.scroll % L) + L) % L) / L; };
+// Deuxième lissage par-dessus Lenis : la caméra glisse comme sur un rail, même avec un doigt nerveux.
+let smoothP = 0, smoothInit = false;
+function smoothProgress(dt) {
+  const target = rawProgress();
+  if (!smoothInit || reduced) { smoothP = target; smoothInit = true; return smoothP; }
+  let d = target - smoothP; if (d > .5) d -= 1; if (d < -.5) d += 1; // passage de la boucle
+  if (Math.abs(d) > .12) smoothP = target; // saut volontaire (bouton « Mon ticket »)
+  else smoothP = (smoothP + d * (1 - Math.exp(-dt * 3.2)) + 1) % 1;
+  return smoothP;
+}
+const progress = () => smoothP;
 const goTo = (p, opts = {}) => lenis.scrollTo(p * lenis.limit, opts);
 
 /* ═════════════ Inscription ═════════════ */
@@ -1267,7 +1316,8 @@ const tmp = V(0, 0, 0);
 let captionKey = "", sparkOn = false, glitterDone = false;
 const envMats = [];
 envelope.traverse((o) => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (!envMats.includes(m)) { m.transparent = true; envMats.push(m); } }); });
-const layers = { info: $("info"), ticketUi: $("ticketUi"), caption: $("caption"), hint: $("hint") };
+const layers = { info: $("info"), ticketUi: $("ticketUi"), caption: $("caption"), hint: $("hint"), floor: $("floor") };
+let shownFloor = 0;
 function setLayer(el, o) {
   const v = Math.round(o * 100) / 100;
   if (el._o === v) return; el._o = v; el.style.opacity = v; el.classList.toggle("on", v > .5);
@@ -1276,19 +1326,22 @@ const BPM = 118;
 
 function frame() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
-  const p = progress();
+  const p = smoothProgress(dt);
   const beatPhase = (t * BPM / 60) % 1;
   const beat = reduced ? .3 : Math.pow(1 - beatPhase, 4);
 
   // Caméra (plan-séquence) + léger flottement « caméra à l'épaule »
   const k = cameraAt(p);
   const inCabin = p > .2 && p < .48;
-  if (!inCabin) k.pos.sub(k.tgt).multiplyScalar(camFit()).add(k.tgt);
+  // En paysage, on recule à l'accueil pour voir l'enveloppe entière au-dessus du formulaire.
+  const introK = camera.aspect > 1 ? (p < .03 ? 1 - range(p, 0, .03) : p > .97 ? range(p, .97, 1) : 0) : 0;
+  if (!inCabin) k.pos.sub(k.tgt).multiplyScalar(camFit() * (1 + .55 * ease(introK))).add(k.tgt);
   camPos.copy(k.pos); camTgt.copy(k.tgt);
   if (!reduced) { camPos.x += Math.sin(t * .53) * .025 + Math.sin(t * 1.31) * .008; camPos.y += Math.sin(t * .71) * .018; camTgt.x += Math.sin(t * .37) * .02; }
   if (sealSlamT >= 0 && sealSlamT < .4 && !reduced) camPos.y += Math.sin(sealSlamT * 60) * .01 * (1 - sealSlamT / .4);
   camera.position.copy(camPos); camera.lookAt(camTgt);
-  const vfov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(.36 / camera.aspect)), 45, 72);
+  let vfov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(.36 / camera.aspect)), 45, 72);
+  if (p > .19 && p < .5) vfov = THREE.MathUtils.lerp(vfov, Math.max(vfov, camera.aspect < 1 ? 68 : 56), bump(p, .19, .215, .455, .49)); // grand angle dans la cabine
   if (Math.abs(camera.fov - vfov) > .01) { camera.fov = vfov; camera.updateProjectionMatrix(); }
 
   // Visibilité par zone (performance)
@@ -1296,7 +1349,7 @@ function frame() {
   lounge.visible = p > .43 && p < .88;
   shaft.visible = cabin.visible = p < .6 || p > .82;
   envelope.visible = p < .072 || p > .95;
-  ticket.visible = p > .88 && p < .97;
+  ticket.visible = p > .88 && p < .956;
 
   // Enveloppe : chute, sceau qui se brise, carton qui sort et s'efface quand on plonge dedans
   if (envelope.visible) {
@@ -1335,8 +1388,8 @@ function frame() {
   if (street.visible) {
     head.rotation.x = p < .3 ? THREE.MathUtils.lerp(.38, -.04, ease(range(p, .1, .13))) : (p > .86 ? THREE.MathUtils.lerp(.38, -.05, ease(range(p, .89, .9))) : .38);
     head.rotation.y = p > .86 ? Math.sin(ease(range(p, .9, .912)) * Math.PI) * .25 : 0;
-    const open = p > .86 ? ease(range(p, .9, .915)) : 0;
-    if (Math.abs(postB.position.x - (.9 + open * 1.1)) > .0005) { postB.position.x = .9 + open * 1.1; postB.position.z = 1.3 + open * .25; updateRope(); }
+    const open = p < .3 ? bump(p, .15, .172, .2, .23) : (p > .86 ? ease(range(p, .9, .915)) : 0);
+    if (Math.abs(ropeOpen - open) > .002) { ropeOpen = open; updateRope(); }
     updateCrowd(queue, t, beat);
     const chase = Math.floor(t * 8);
     for (let i = 0; i < BULBS.length; i++) { const on = reduced || (i + chase) % 3 !== 0; bulbMesh.setColorAt(i, tmpColor.setRGB(on ? 1.7 : .35, on ? 1.25 : .25, on ? .8 : .2)); }
@@ -1351,7 +1404,10 @@ function frame() {
   if (p > .235 && p < .48) cabY = clamp(camera.position.y - 1.6, 0, TOP);
   else if (p >= .48 && p < .87) cabY = TOP;
   cabin.position.y = cabY;
-  setDial(1 + 22 * (cabY / TOP));
+  const floorNow = 1 + 22 * (cabY / TOP);
+  setDial(floorNow);
+  const fl = Math.round(floorNow);
+  if (fl !== shownFloor) { shownFloor = fl; $("floorNum").textContent = String(fl).padStart(2, "0"); if (fl > 1 && p > .23 && p < .47) play("tick"); }
   setDoors(p < .455 ? 0 : ease(range(p, .455, .475)));
   floaters.forEach((f) => { const k2 = 1 - ((reduced ? f.ph : t * .06 + f.ph) % 1); f.m.position.set(f.x + Math.sin(t * .3 + f.ph * 9) * .05, .3 + k2 * 2.4, f.z); f.m.rotation.set(0, Math.sin(t * .4 + f.ph * 7) * .3, Math.sin(t * .5 + f.ph * 5) * .1); });
 
@@ -1398,7 +1454,7 @@ function frame() {
     ticket.lookAt(camPos.x, ticket.position.y, camPos.z);
     ticket.rotateY((1 - a) * Math.PI * 1.2 + (reduced ? 0 : Math.sin(t * .6) * .08)); ticket.rotateX(reduced ? 0 : Math.sin(t * .5) * .04);
     const visW = 2 * 1.25 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
-    ticket.scale.setScalar(Math.min(1, visW * .86 / 1.2) * Math.max(.01, a));
+    ticket.scale.setScalar(Math.min(1, visW * .86 / 1.2) * Math.max(.01, a * (1 - ease(range(p, .943, .955)))));
   }
 
   // Profondeur de champ aux moments clés
@@ -1420,6 +1476,7 @@ function frame() {
   setLayer(layers.caption, capO);
   setLayer(layers.hint, showHint ? (p < .025 ? 1 : 1 - range(p, .025, .045)) : 0);
   setLayer(layers.info, bump(p, .52, .532, .565, .578));
+  setLayer(layers.floor, bump(p, .222, .236, .452, .468));
   setLayer(layers.ticketUi, bump(p, .91, .918, .945, .955));
 
   // Bruitages et musique au fil de l'histoire (en avançant)
