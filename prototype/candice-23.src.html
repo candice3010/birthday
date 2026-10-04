@@ -21,6 +21,7 @@
   --f-ui: "Jost", "Avenir Next", "Segoe UI", sans-serif;
   color-scheme: dark;
 }
+[hidden] { display: none !important; } /* sinon display:grid des panneaux ignore l'attribut hidden */
 html, body { background: var(--night); color: var(--ink); }
 body { font-family: var(--f-ui); -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
 #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100lvh; display: block; z-index: 0; touch-action: pan-y; }
