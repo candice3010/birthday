@@ -134,16 +134,16 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   </button>
 </div>
 
-<form id="intro" class="layer bottom panel fade" autocomplete="on" novalidate hidden>
-  <h1>Ton nom est sur la liste&nbsp;?</h1>
+<div id="intro" class="layer bottom panel fade" role="form" aria-labelledby="introTitle" hidden>
+  <h1 id="introTitle">Ton nom est sur la liste&nbsp;?</h1>
   <div class="row">
     <div class="field"><label for="first">Prénom</label><input id="first" name="given-name" autocomplete="given-name" maxlength="40" required></div>
     <div class="field"><label for="last">Nom</label><input id="last" name="family-name" autocomplete="family-name" maxlength="60" required></div>
   </div>
   <p class="err" id="err" role="alert"></p>
-  <button class="cta" id="seal" type="submit" disabled>Sceller mon invitation</button>
+  <button class="cta" id="seal" type="button">Sceller mon invitation</button>
   <p class="small">Invitation perso : inscris-toi avec ton vrai nom, il sera vérifié à l'entrée.</p>
-</form>
+</div>
 
 <div id="back" class="layer bottom panel fade" hidden>
   <h2 id="backName">Re, toi</h2>
@@ -1063,16 +1063,28 @@ function onType() {
   guestFirst = f; guestLast = l;
   const full = `${f} ${l}`.trim();
   typedAt = [...full].map((_, i) => typedAt[i] && i < prev.length && full[i] === prev[i] ? typedAt[i] : performance.now());
-  $("seal").disabled = !(f.length > 0 && l.length > 0);
   $("err").textContent = "";
   envDirtyUntil = performance.now() + 450;
   drawEnvelope();
 }
 first.addEventListener("input", onType); last.addEventListener("input", onType);
-form.addEventListener("submit", (e) => {
+// Pas d'envoi de formulaire classique : la page d'aperçu Claude (cadre sécurisé) le bloquerait.
+let sealing = false;
+$("seal").addEventListener("click", register);
+[first, last].forEach((el) => el.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
   e.preventDefault();
+  if (el === first && !last.value.trim()) last.focus(); else register();
+}));
+function register() {
+  if (sealing) return;
   const f = first.value.trim().replace(/\s+/g, " "), l = last.value.trim().replace(/\s+/g, " ");
-  if (!/\p{L}/u.test(f) || !/\p{L}/u.test(l)) { $("err").textContent = "Écris ton prénom et ton nom, comme sur ta pièce d'identité."; return; }
+  if (!/\p{L}/u.test(f) || !/\p{L}/u.test(l)) {
+    $("err").textContent = !f ? "Écris ton prénom." : !l ? "Écris ton nom de famille." : "Écris ton prénom et ton nom, comme sur ta pièce d'identité.";
+    (!/\p{L}/u.test(f) ? first : last).focus();
+    return;
+  }
+  sealing = true;
   initAudio(); setSound(true);
   // Doublons : comparaison sans accents ni majuscules (sur la vraie liste Supabase, côté serveur).
   const list = store.get("c23_list") || [];
@@ -1083,7 +1095,7 @@ form.addEventListener("submit", (e) => {
   store.set("c23_list", list); store.set("c23_guest", { first: f, last: l, key });
   form.classList.remove("on"); form.style.opacity = 0; setTimeout(() => (form.hidden = true), 500);
   drawTicket(); startSeal(!!existing);
-});
+}
 function startSeal(already) {
   sealed = true; seal.visible = true; sealSlamT = 0; play("seal");
   setTimeout(() => {
